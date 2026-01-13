@@ -2,7 +2,11 @@ import { Upload, Camera } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { cn } from '../../lib/utils';
 
-export function PhotoUpload() {
+interface PhotoUploadProps {
+    onImageSelect?: (base64: string | null) => void;
+}
+
+export function PhotoUpload({ onImageSelect }: PhotoUploadProps) {
     const [preview, setPreview] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -11,7 +15,9 @@ export function PhotoUpload() {
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setPreview(reader.result as string);
+                const result = reader.result as string;
+                setPreview(result);
+                onImageSelect?.(result);
             };
             reader.readAsDataURL(file);
         }
