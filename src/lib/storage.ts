@@ -20,6 +20,13 @@ export async function getStoredStudents(): Promise<Student[]> {
     return [];
 }
 
+export async function getStudent(regNum: string): Promise<Student | null> {
+    if (window.electronAPI) {
+        return await window.electronAPI.getStudent(regNum);
+    }
+    return null;
+}
+
 export async function saveStudent(student: Omit<Student, 'status'>): Promise<Student> {
     const newStudent = {
         avatar: null, // Default if missing

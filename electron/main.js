@@ -78,6 +78,11 @@ app.whenReady().then(() => {
         return stmt.all();
     });
 
+    ipcMain.handle('get-student', (event, regNum) => {
+        const stmt = db.prepare('SELECT * FROM students WHERE regNum = ?');
+        return stmt.get(regNum);
+    });
+
     ipcMain.handle('add-student', (event, student) => {
         // Use regNum as the "id" effectively
         const stmt = db.prepare(`

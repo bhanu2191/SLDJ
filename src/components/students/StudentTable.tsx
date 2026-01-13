@@ -114,7 +114,7 @@ export function StudentTable() {
                             return (
                                 <tr
                                     key={student.regNum}
-                                    onClick={() => navigate(`/${userRole}/students/${student.regNum}`)}
+                                    onClick={() => navigate(`/${userRole}/students/${encodeURIComponent(student.regNum)}`)}
                                     className={cn(
                                         "hover:bg-slate-50 transition-colors cursor-pointer group",
                                         shouldHighlight ? "bg-red-50/50 hover:bg-red-50/80" : ""
