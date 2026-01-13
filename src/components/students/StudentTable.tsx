@@ -7,7 +7,7 @@ import { getStoredStudents } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 
 interface Student {
-    id: string;
+    // id removed
     regNum: string;
     name: string;
     class: string;
@@ -16,11 +16,8 @@ interface Student {
 }
 
 const mockStudents: Student[] = [
-    { id: '1', regNum: 'SLDJ-2026-N5-0012', name: 'Kasun Perera', class: 'JLPT N5', status: 'paid' },
-    { id: '2', regNum: 'SLDJ-2026-N4-0045', name: 'Amaya Silva', class: 'JLPT N4', status: 'overdue' },
-    { id: '3', regNum: 'SLDJ-2026-AL-0089', name: 'Saman Kumara', class: 'Adv. Level', status: 'pending' },
-    { id: '4', regNum: 'SLDJ-2026-N5-0015', name: 'Nimali De Silva', class: 'JLPT N5', status: 'paid', avatar: 'https://i.pravatar.cc/150?u=4' },
-    { id: '5', regNum: 'SLDJ-2026-OL-0033', name: 'Ruwan Pradeep', class: 'Ord. Level', status: 'overdue' },
+    { regNum: 'SLDJ-2026-N5-0012', name: 'Kasun Perera', class: 'JLPT N5', status: 'paid' },
+    { regNum: 'SLDJ-2026-N4-0045', name: 'Amaya Silva', class: 'JLPT N4', status: 'overdue' },
 ];
 
 export function StudentTable() {
@@ -33,10 +30,11 @@ export function StudentTable() {
     const isLate = currentDate.getDate() > 10; // Logic for late payment highlight
 
     useEffect(() => {
-        const stored = getStoredStudents();
-        // Convert stored students to match table interface if needed, but they are compatible
-        // Just merging them. Prepend stored ones to show them first.
-        setStudents([...stored, ...mockStudents]);
+        const loadStudents = async () => {
+            const stored = await getStoredStudents();
+            setStudents([...stored, ...mockStudents]);
+        };
+        loadStudents();
     }, []);
 
     const filteredStudents = students.filter(student => {
@@ -52,10 +50,12 @@ export function StudentTable() {
         return matchesFilter && matchesSearch;
     });
 
-    const handleDelete = (id: string, e: React.MouseEvent) => {
+    const handleDelete = async (regNum: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this student?')) {
-            setStudents(students.filter(s => s.id !== id));
+            // In a real app, you might want to call the API to delete
+            await import('../../lib/storage').then(m => m.deleteStudent(regNum));
+            setStudents(students.filter(s => s.regNum !== regNum));
         }
     };
 
@@ -113,8 +113,8 @@ export function StudentTable() {
                             const shouldHighlight = isLate && (student.status === 'overdue' || student.status === 'pending');
                             return (
                                 <tr
-                                    key={student.id}
-                                    onClick={() => navigate(`/${userRole}/students/${student.id}`)}
+                                    key={student.regNum}
+                                    onClick={() => navigate(`/${userRole}/students/${student.regNum}`)}
                                     className={cn(
                                         "hover:bg-slate-50 transition-colors cursor-pointer group",
                                         shouldHighlight ? "bg-red-50/50 hover:bg-red-50/80" : ""
@@ -143,7 +143,7 @@ export function StudentTable() {
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 className="p-2 text-red-500 hover:text-red-700 transition-colors hover:bg-red-50 rounded-full"
-                                                onClick={(e) => handleDelete(student.id, e)}
+                                                onClick={(e) => handleDelete(student.regNum, e)}
                                                 title="Delete Student"
                                             >
                                                 <MoreHorizontal className="h-5 w-5" />

@@ -1,6 +1,5 @@
 export interface Student {
-    id: string;
-    regNum: string;
+    regNum: string; // Primary Key now
     name: string;
     dob?: string;
     phone?: string;
@@ -12,23 +11,40 @@ export interface Student {
     avatar?: string;
 }
 
-const STORAGE_KEY = 'students_data';
-
-export function getStoredStudents(): Student[] {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+export async function getStoredStudents(): Promise<Student[]> {
+    if (window.electronAPI) {
+        return await window.electronAPI.getStudents();
+    }
+    // Fallback for non-Electron environment (dev/web) - optionally keep localStorage or return empty
+    console.warn("Electron API not found, falling back to empty array");
+    return [];
 }
 
-export function saveStudent(student: Omit<Student, 'id' | 'status'>): Student {
-    const students = getStoredStudents();
-
-    const newStudent: Student = {
+export async function saveStudent(student: Omit<Student, 'status'>): Promise<Student> {
+    const newStudent = {
+        avatar: null, // Default if missing
         ...student,
-        id: crypto.randomUUID(),
-        status: 'pending', // Default status
+        status: 'pending' as const,
     };
 
-    students.push(newStudent);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
-    return newStudent;
+    if (window.electronAPI) {
+        return await window.electronAPI.addStudent(newStudent);
+    }
+    console.warn("Electron API not found");
+    return newStudent as Student;
 }
+
+export async function updateStudent(student: Student): Promise<Student> {
+    if (window.electronAPI) {
+        return await window.electronAPI.updateStudent(student);
+    }
+    return student;
+}
+
+export async function deleteStudent(id: string): Promise<string> {
+    if (window.electronAPI) {
+        return await window.electronAPI.deleteStudent(id);
+    }
+    return id;
+}
+

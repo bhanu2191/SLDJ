@@ -6,10 +6,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
 import { saveStudent } from '../lib/storage';
+import { useAuth } from '../context/AuthContext';
 
 export function Registration() {
     const navigate = useNavigate();
+    const { userRole } = useAuth();
     const [previewId, setPreviewId] = useState('');
+    const [avatar, setAvatar] = useState<string | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -41,30 +44,41 @@ export function Registration() {
         setFormData(prev => ({ ...prev, classKey: e.target.value }));
     };
 
-    const handleRegister = () => {
-        if (!formData.fullName || !formData.classKey) {
-            alert("Please fill in at least Name and Class.");
+    const handleRegister = async () => {
+        // Validation Checks
+        if (!formData.fullName) {
+            alert("Error: Student Name is required!");
+            return;
+        }
+        if (!formData.classKey) {
+            alert("Error: Please assign a Class to the student.");
             return;
         }
 
-        // 1. Generate and commit the ID
-        const finalId = commitNextStudentId();
+        try {
+            // 1. Generate and commit the ID
+            const finalId = commitNextStudentId();
 
-        // 2. Save student
-        saveStudent({
-            regNum: finalId,
-            name: formData.fullName,
-            class: getClassName(formData.classKey), // helper to get readable name
-            dob: formData.dob,
-            phone: formData.phone,
-            email: formData.email,
-            guardian: formData.guardian,
-            guardianPhone: formData.guardianPhone,
-        });
+            // 2. Save student
+            await saveStudent({
+                regNum: finalId,
+                name: formData.fullName,
+                class: getClassName(formData.classKey), // helper to get readable name
+                dob: formData.dob,
+                phone: formData.phone,
+                email: formData.email,
+                guardian: formData.guardian,
+                guardianPhone: formData.guardianPhone,
+                avatar: avatar || undefined // Pass avatar (or undefined if null, storage.ts will handle it)
+            });
 
-        // 3. Navigate
-        alert(`Student Registered Successfully! ID: ${finalId}`);
-        navigate('/students');
+            // 3. Navigate
+            alert(`Student Registered Successfully! ID: ${finalId}`);
+            navigate(`/${userRole}/students`);
+        } catch (error) {
+            console.error("Registration failed:", error);
+            alert("Failed to save student. Please try again.");
+        }
     };
 
     const getClassName = (key: string) => {
@@ -95,7 +109,7 @@ export function Registration() {
 
                         {/* Left Column: Photo & Personal Info */}
                         <div className="lg:col-span-1 space-y-6">
-                            <PhotoUpload />
+                            <PhotoUpload onImageSelect={setAvatar} />
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
