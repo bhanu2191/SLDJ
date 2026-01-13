@@ -4,7 +4,7 @@ export type UserRole = 'admin' | 'operator' | null;
 
 interface AuthContextType {
     userRole: UserRole;
-    login: (role: UserRole) => void;
+    login: (role: UserRole, password?: string) => boolean;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -18,11 +18,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // We can't use useNavigate here directly if AuthProvider is wrapping BrowserRouter in App.tsx
     // But usually AuthProvider is inside BrowserRouter. I'll check App.tsx structure.
 
-    const login = (role: UserRole) => {
+    const login = (role: UserRole, password?: string): boolean => {
+        if (role === 'admin') {
+            if (password === 'admin123') {
+                setUserRole(role);
+                localStorage.setItem('userRole', role);
+                return true;
+            }
+            return false;
+        }
+
+        // Operator doesn't need password for now
         setUserRole(role);
         if (role) {
             localStorage.setItem('userRole', role);
         }
+        return true;
     };
 
     const logout = () => {
