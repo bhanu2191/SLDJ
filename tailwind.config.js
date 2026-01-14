@@ -8,22 +8,24 @@ export default {
         extend: {
             colors: {
                 primary: {
-                    light: '#ff6b66',
-                    DEFAULT: '#E6231B', // Primary Red
-                    dark: '#b0160f',
+                    50: '#ecfeff', // Cyan-50
+                    100: '#cffafe', // Cyan-100
+                    light: '#22d3ee', // Cyan-400
+                    DEFAULT: '#0891b2', // Cyan-600 (Ocean Teal)
+                    dark: '#155e75', // Cyan-800
                 },
                 charcoal: {
-                    DEFAULT: '#2D2E32', // Charcoal
+                    DEFAULT: '#1e293b', // Slate-800 (Softer than pure black)
                 },
                 accent: {
-                    light: '#ffc1e3',
-                    DEFAULT: '#f48fb1', // Keep existing or adjust? User didn't specify, keeping for now but Primary Red is dominant.
-                    dark: '#bf5f82',
+                    light: '#fdba74', // Orange-300
+                    DEFAULT: '#f97316', // Orange-500 (Warm Coral/Orange)
+                    dark: '#c2410c', // Orange-700
                 },
                 status: {
                     success: '#10b981', // Emerald Green
                     warning: '#f59e0b', // Amber/Yellow
-                    danger: '#ef4444', // Soft Red (Standard danger)
+                    danger: '#ef4444', // Soft Red
                 }
             },
             fontFamily: {

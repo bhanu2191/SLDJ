@@ -25,7 +25,7 @@ export const SystemSettings = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-semibold text-gray-800">Class Categories & Fees</h2>
-                    <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+                    <button className="text-sm text-primary hover:text-primary-dark font-medium flex items-center gap-1">
                         <Plus size={16} /> Add Category
                     </button>
                 </div>
@@ -37,7 +37,7 @@ export const SystemSettings = () => {
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Class Name</label>
                                 <input
                                     type="text"
-                                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-primary focus:border-primary"
                                     defaultValue={category.name}
                                 />
                             </div>
@@ -45,7 +45,7 @@ export const SystemSettings = () => {
                                 <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Fee (LKR)</label>
                                 <input
                                     type="number"
-                                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-primary focus:border-primary"
                                     defaultValue={category.fee}
                                 />
                             </div>
@@ -59,7 +59,7 @@ export const SystemSettings = () => {
                 </div>
 
                 <div className="mt-6 flex justify-end">
-                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                    <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors">
                         <Save size={18} />
                         Save Changes
                     </button>
@@ -74,7 +74,7 @@ export const SystemSettings = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Provider Name</label>
                         <input
                             type="text"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
                             defaultValue={smsSettings.provider}
                         />
                     </div>
@@ -82,7 +82,7 @@ export const SystemSettings = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Sender ID</label>
                         <input
                             type="text"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
                             defaultValue={smsSettings.senderId}
                         />
                     </div>
@@ -90,13 +90,13 @@ export const SystemSettings = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
                         <input
                             type="password"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-indigo-500 focus:border-indigo-500 font-mono"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary font-mono"
                             defaultValue={smsSettings.apiKey}
                         />
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                    <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                    <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors">
                         <Save size={18} />
                         Update Configuration
                     </button>

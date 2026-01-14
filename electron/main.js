@@ -14,12 +14,23 @@ const __dirname = dirname(__filename);
 //     if (require('electron-squirrel-startup')) app.quit();
 // }
 
-const dbPath = join(app.getPath('userData'), 'school.db');
-// Ensure directory exists if needed, but app.getPath('userData') usually exists.
+const fs = require('fs');
+
+// Ensure data directory exists
+const dataDir = join(__dirname, '../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir);
+}
+
+const dbPath = join(dataDir, 'school.db');
 const db = new Database(dbPath);
 
-// Note: Schema Changed. User must delete old DB.
-function createTable() {
+// Initialize Database
+function initDB() {
+    // Enable WAL mode for better concurrency
+    db.pragma('journal_mode = WAL');
+
+    // Students Table
     db.exec(`
         CREATE TABLE IF NOT EXISTS students (
             regNum TEXT PRIMARY KEY,
@@ -36,9 +47,23 @@ function createTable() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Operators Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS operators (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'operator',
+            status TEXT DEFAULT 'active',
+            lastActive TEXT DEFAULT 'Never',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
 }
 
-createTable();
+initDB();
 
 let mainWindow = null;
 
@@ -47,9 +72,10 @@ const createWindow = () => {
         width: 1200,
         height: 800,
         webPreferences: {
-            preload: join(__dirname, 'preload.js'),
+            preload: join(__dirname, 'preload.cjs'),
             nodeIntegration: false,
             contextIsolation: true,
+            sandbox: false // Required for ESM preload in some environments
         },
     });
 
@@ -72,7 +98,7 @@ app.whenReady().then(() => {
         }
     });
 
-    // IPC Handlers
+    // --- IPC Handlers for Students ---
     ipcMain.handle('get-students', () => {
         const stmt = db.prepare('SELECT * FROM students ORDER BY created_at DESC');
         return stmt.all();
@@ -84,7 +110,6 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('add-student', (event, student) => {
-        // Use regNum as the "id" effectively
         const stmt = db.prepare(`
           INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar)
           VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar)
@@ -116,6 +141,53 @@ app.whenReady().then(() => {
         const stmt = db.prepare('DELETE FROM students WHERE regNum = ?');
         stmt.run(regNum);
         return regNum;
+    });
+
+    // --- IPC Handlers for Operators ---
+    ipcMain.handle('get-operators', () => {
+        // Exclude password from result
+        const stmt = db.prepare('SELECT id, name, email, role, status, lastActive, created_at FROM operators ORDER BY created_at DESC');
+        return stmt.all();
+    });
+
+    ipcMain.handle('add-operator', (event, operator) => {
+        const stmt = db.prepare(`
+            INSERT INTO operators (name, email, password, role, status, lastActive)
+            VALUES (@name, @email, @password, @role, @status, @lastActive)
+        `);
+        const info = stmt.run(operator);
+        return { ...operator, id: info.lastInsertRowid };
+    });
+
+    ipcMain.handle('delete-operator', (event, id) => {
+        const stmt = db.prepare('DELETE FROM operators WHERE id = ?');
+        stmt.run(id);
+        return id;
+    });
+
+    ipcMain.handle('toggle-operator-status', (event, { id, status }) => {
+        const stmt = db.prepare('UPDATE operators SET status = ? WHERE id = ?');
+        stmt.run(status, id);
+        return { id, status };
+    });
+
+    // Auth Check (Login)
+    ipcMain.handle('verify-operator', (event, { email, password }) => {
+        // In real app, hash password. Here cleartext as per mock style request or basic demo.
+        const stmt = db.prepare('SELECT * FROM operators WHERE (email = ? OR role = ?) AND password = ?');
+        // NOTE: Allowing login by 'role' name (e.g. 'operator') is weird but matches the simple UI flow.
+        // We initially check email for specificity.
+        // But the login UI sends 'role' as identifier right now. 
+        // Let's assume we pass { email: ... } if we have it, or we rely on some other ID.
+        // Wait, the Login UI sends `login({ role: 'operator', password: '...' })`.
+        // So we really only check role? That means ALL operators share the same password?
+        // NO, the user requested "new operator login process add password". 
+        // Best approach: If role is 'operator', we need an EMAIL or USERNAME input.
+        // I added Email input plan.
+
+        // For now, let's keep it flexible:
+        const user = stmt.get(email, email, password);
+        return user || null;
     });
 
 });

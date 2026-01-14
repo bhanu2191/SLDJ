@@ -21,7 +21,7 @@ export function Sidebar() {
                 </div>
                 <div>
                     <h1 className="font-bold text-lg leading-tight">SL Dream Japan</h1>
-                    <p className="text-xs text-indigo-200">Admin Portal</p>
+                    <p className="text-xs text-gray-400">Admin Portal</p>
                 </div>
             </div>
 
@@ -36,12 +36,12 @@ export function Sidebar() {
                                 "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group",
                                 isActive
                                     ? "bg-white/10 text-white font-medium border-l-4 border-accent"
-                                    : "text-indigo-200 hover:bg-white/5 hover:text-white"
+                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
                             )}
                         >
                             <item.icon className={cn(
                                 "h-5 w-5 transition-colors",
-                                isActive ? "text-accent" : "text-indigo-300 group-hover:text-white"
+                                isActive ? "text-accent" : "text-gray-400 group-hover:text-white"
                             )} />
                             <span>{item.label}</span>
                         </Link>
@@ -56,7 +56,7 @@ export function Sidebar() {
                     </div>
                     <div className="flex-1">
                         <p className="text-sm font-medium">System Admin</p>
-                        <p className="text-xs text-indigo-300">admin@sldj.lk</p>
+                        <p className="text-xs text-gray-400">admin@sldj.lk</p>
                     </div>
                 </div>
             </div>

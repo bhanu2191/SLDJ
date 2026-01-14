@@ -1,24 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, CheckCircle, XCircle, Clock } from 'lucide-react';
 
 interface StudentAttendance {
-    id: string;
+    id: string; // Will map regNum to id
     name: string;
     regNum: string;
     status: 'present' | 'absent' | 'late' | 'pending';
     timeIn?: string;
 }
 
-const mockStudents: StudentAttendance[] = [
-    { id: '1', name: 'Kasun Perera', regNum: 'SLDJ-2026-N5-0012', status: 'pending' },
-    { id: '2', name: 'Amaya Silva', regNum: 'SLDJ-2026-N4-0045', status: 'pending' },
-    { id: '3', name: 'Saman Kumara', regNum: 'SLDJ-2026-AL-0089', status: 'pending' },
-];
-
 export const Attendance = () => {
     const [selectedClass, setSelectedClass] = useState('JLPT N5');
-    const [students, setStudents] = useState(mockStudents);
+    const [students, setStudents] = useState<StudentAttendance[]>([]);
     const currentDate = new Date().toLocaleDateString();
+
+    useEffect(() => {
+        loadStudents();
+    }, []);
+
+    const loadStudents = async () => {
+        try {
+            // @ts-ignore
+            const dbStudents = await window.electronAPI.getStudents();
+            // Map DB students to Attendance format
+            const formatted: StudentAttendance[] = dbStudents.map((s: any) => ({
+                id: s.regNum, // Use regNum as unique ID
+                name: s.name,
+                regNum: s.regNum,
+                status: 'pending' // Reset status for daily view (or fetch if we stored daily logs)
+            }));
+            setStudents(formatted);
+        } catch (error) {
+            console.error("Failed to load students", error);
+        }
+    };
+    // const currentDate = new Date().toLocaleDateString(); // Removed duplicate
 
     const markAttendance = (id: string, status: 'present' | 'absent' | 'late') => {
         setStudents(students.map(s => {
@@ -44,7 +60,7 @@ export const Attendance = () => {
                     <select
                         value={selectedClass}
                         onChange={(e) => setSelectedClass(e.target.value)}
-                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
                     >
                         <option>JLPT N5</option>
                         <option>JLPT N4</option>
@@ -62,7 +78,7 @@ export const Attendance = () => {
                         <input
                             type="text"
                             placeholder="Search student by name or ID..."
-                            className="pl-9 pr-4 py-2 w-full rounded-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                            className="pl-9 pr-4 py-2 w-full rounded-md border-gray-300 focus:ring-primary focus:border-primary text-sm"
                         />
                     </div>
                 </div>
@@ -72,7 +88,7 @@ export const Attendance = () => {
                     {students.map((student) => (
                         <div key={student.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold">
+                                <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary font-bold">
                                     {student.name.charAt(0)}
                                 </div>
                                 <div>

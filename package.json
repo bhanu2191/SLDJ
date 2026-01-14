@@ -9,7 +9,8 @@
     "electron:dev": "concurrently -k \"cross-env BROWSER=none npm run dev\" \"wait-on tcp:5173 && electron .\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "rebuild": "electron-rebuild"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.0",

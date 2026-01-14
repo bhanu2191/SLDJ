@@ -56,8 +56,8 @@ export function AdminLayout() {
                             to={item.path}
                             onClick={() => setIsSidebarOpen(false)}
                             className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${location.pathname === item.path
-                                    ? 'bg-indigo-50 text-indigo-700'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-primary-50 text-primary'
+                                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                         >
                             <item.icon className="mr-3 h-5 w-5" />

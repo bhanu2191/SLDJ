@@ -6,21 +6,33 @@ export const Payments = () => {
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-    // Mock search for demo
-    const handleSearch = (e: React.FormEvent) => {
+    // Search for demo
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Simulate finding a student
+        setPaymentSuccess(false);
+        setSelectedStudent(null);
+
         if (searchQuery.length > 0) {
-            setSelectedStudent({
-                id: '1',
-                name: 'Kasun Perera',
-                regNum: searchQuery,
-                class: 'JLPT N5',
-                monthlyFee: 5000,
-                lastPayment: '2025-12-10',
-                dueAmount: 5000
-            });
-            setPaymentSuccess(false);
+            try {
+                // @ts-ignore
+                const student = await window.electronAPI.getStudent(searchQuery);
+
+                if (student) {
+                    setSelectedStudent({
+                        id: student.regNum,
+                        name: student.name,
+                        regNum: student.regNum,
+                        class: student.class,
+                        monthlyFee: 5000, // Hardcoded for now, or add to DB schema
+                        lastPayment: 'No record', // Need separate payments table to track this real history
+                        dueAmount: 5000
+                    });
+                } else {
+                    alert('Student not found');
+                }
+            } catch (error) {
+                console.error("Search failed", error);
+            }
         }
     };
 
@@ -44,12 +56,12 @@ export const Payments = () => {
                         <input
                             type="text"
                             placeholder="Enter Student Registration ID (e.g., SLDJ-2026-N5-0012)"
-                            className="pl-10 w-full rounded-lg border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 p-3"
+                            className="pl-10 w-full rounded-lg border-gray-300 focus:ring-primary focus:border-primary p-3"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    <button type="submit" className="bg-indigo-600 text-white px-6 rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                    <button type="submit" className="bg-primary text-white px-6 rounded-lg font-medium hover:bg-primary-dark transition-colors">
                         Find Student
                     </button>
                 </form>
@@ -57,14 +69,14 @@ export const Payments = () => {
 
             {selectedStudent && (
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-fade-in">
-                    <div className="p-6 bg-indigo-50 border-b border-indigo-100 flex justify-between items-center">
+                    <div className="p-6 bg-primary-50 border-b border-primary-100 flex justify-between items-center">
                         <div>
-                            <h2 className="text-xl font-bold text-indigo-900">{selectedStudent.name}</h2>
-                            <p className="text-indigo-600 font-mono">{selectedStudent.regNum}</p>
+                            <h2 className="text-xl font-bold text-primary-dark">{selectedStudent.name}</h2>
+                            <p className="text-primary font-mono">{selectedStudent.regNum}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm text-indigo-600">Current Class</p>
-                            <p className="font-bold text-indigo-900">{selectedStudent.class}</p>
+                            <p className="text-sm text-primary">Current Class</p>
+                            <p className="font-bold text-primary-dark">{selectedStudent.class}</p>
                         </div>
                     </div>
 
@@ -87,15 +99,15 @@ export const Payments = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
                                         <div className="flex gap-4">
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="method" defaultChecked className="text-indigo-600 focus:ring-indigo-500" />
+                                                <input type="radio" name="method" defaultChecked className="text-primary focus:ring-indigo-500" />
                                                 <span>Cash</span>
                                             </label>
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="method" className="text-indigo-600 focus:ring-indigo-500" />
+                                                <input type="radio" name="method" className="text-primary focus:ring-indigo-500" />
                                                 <span>Card</span>
                                             </label>
                                             <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" name="method" className="text-indigo-600 focus:ring-indigo-500" />
+                                                <input type="radio" name="method" className="text-primary focus:ring-indigo-500" />
                                                 <span>Bank Transfer</span>
                                             </label>
                                         </div>
@@ -124,7 +136,7 @@ export const Payments = () => {
                                     >
                                         Next Student
                                     </button>
-                                    <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium flex items-center gap-2">
+                                    <button className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium flex items-center gap-2">
                                         <Printer size={18} />
                                         Print Receipt
                                     </button>

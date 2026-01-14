@@ -1,10 +1,15 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { type User, type UserRole, type LoginCredentials } from '../types/auth';
+import { authService } from '../services/authService';
 
-export type UserRole = 'admin' | 'operator' | null;
+export type { UserRole }; // Re-export for convenience if needed
 
 interface AuthContextType {
-    userRole: UserRole;
-    login: (role: UserRole, password?: string) => boolean;
+    user: User | null;
+    userRole: UserRole | null;
+    isLoading: boolean;
+    error: string | null;
+    login: (credentials: LoginCredentials) => Promise<boolean>;
     logout: () => void;
     isAuthenticated: boolean;
 }
@@ -12,37 +17,51 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [userRole, setUserRole] = useState<UserRole>(() => {
-        return (localStorage.getItem('userRole') as UserRole) || null;
-    });
-    // We can't use useNavigate here directly if AuthProvider is wrapping BrowserRouter in App.tsx
-    // But usually AuthProvider is inside BrowserRouter. I'll check App.tsx structure.
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const login = (role: UserRole, password?: string): boolean => {
-        if (role === 'admin') {
-            if (password === 'admin123') {
-                setUserRole(role);
-                localStorage.setItem('userRole', role);
-                return true;
+    useEffect(() => {
+        const initAuth = () => {
+            const storedUser = authService.getUser();
+            if (storedUser) {
+                setUser(storedUser);
             }
-            return false;
-        }
+            setIsLoading(false);
+        };
+        initAuth();
+    }, []);
 
-        // Operator doesn't need password for now
-        setUserRole(role);
-        if (role) {
-            localStorage.setItem('userRole', role);
+    const login = async (credentials: LoginCredentials): Promise<boolean> => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const loggedInUser = await authService.login(credentials);
+            setUser(loggedInUser);
+            return true;
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Login failed');
+            return false;
+        } finally {
+            setIsLoading(false);
         }
-        return true;
     };
 
-    const logout = () => {
-        setUserRole(null);
-        localStorage.removeItem('userRole');
+    const logout = async () => {
+        await authService.logout();
+        setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ userRole, login, logout, isAuthenticated: !!userRole }}>
+        <AuthContext.Provider value={{
+            user,
+            userRole: user?.role || null,
+            isLoading,
+            error,
+            login,
+            logout,
+            isAuthenticated: !!user
+        }}>
             {children}
         </AuthContext.Provider>
     );
