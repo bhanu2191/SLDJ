@@ -89,11 +89,11 @@ export function Login() {
                                             setPassword('');
                                         }}
                                         className={`relative flex flex-col items-center p-4 border rounded-xl transition-all duration-200 group ${selectedRole === 'operator'
-                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                            : 'border-gray-400 hover:border-gray-300 hover:bg-gray-50'
+                                            ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
+                                            : 'border-gray-200 hover:border-primary/50 hover:bg-primary/5'
                                             }`}
                                     >
-                                        <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'operator' ? 'bg-primary/20 text-primary' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                                        <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'operator' ? 'bg-primary/20 text-primary' : 'bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary'
                                             }`}>
                                             <Users className="h-6 w-6" />
                                         </div>
@@ -109,39 +109,41 @@ export function Login() {
                                             setPassword('');
                                         }}
                                         className={`relative flex flex-col items-center p-4 border rounded-xl transition-all duration-200 group ${selectedRole === 'admin'
-                                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                                            : 'border-gray-400 hover:border-gray-300 hover:bg-gray-50'
+                                            ? 'border-accent bg-accent/5 ring-1 ring-accent shadow-sm'
+                                            : 'border-gray-200 hover:border-accent/50 hover:bg-accent/5'
                                             }`}
                                     >
-                                        <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'admin' ? 'bg-primary/20 text-primary' : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200'
+                                        <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'admin' ? 'bg-accent/20 text-accent' : 'bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent'
                                             }`}>
                                             <Shield className="h-6 w-6" />
                                         </div>
-                                        <span className={`font-semibold text-sm ${selectedRole === 'admin' ? 'text-primary-dark' : 'text-gray-800'
+                                        <span className={`font-semibold text-sm ${selectedRole === 'admin' ? 'text-accent-dark' : 'text-gray-800'
                                             }`}>Administrator</span>
                                     </button>
                                 </div>
                             </div>
 
                             {/* Password input */}
-                            <div className="transition-all duration-300 ease-in-out overflow-hidden max-h-32 opacity-100">
-                                <div className="p-1">
-                                    <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                        Password
-                                    </label>
-                                    <div className="mt-1">
-                                        <input
-                                            id="password"
-                                            name="password"
-                                            type="password"
-                                            autoComplete="current-password"
-                                            required
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            className="appearance-none block w-full px-4 py-3 border border-gray-400 rounded-lg shadow-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent sm:text-sm transition-all duration-200 hover:border-primary hover:bg-gray-50 focus:ring-offset-2"
-                                            placeholder="Enter your password"
-                                        />
-                                    </div>
+                            <div>
+                                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                                    Password
+                                </label>
+                                <div className="mt-1">
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type="password"
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className={`appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-200 ${selectedRole === 'admin'
+                                                ? 'focus:ring-accent'
+                                                : 'focus:ring-primary'
+                                            }`}
+                                        placeholder="Enter your password"
+                                    />
                                 </div>
                             </div>
 

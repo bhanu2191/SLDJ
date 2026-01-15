@@ -16,8 +16,7 @@ interface Student {
 }
 
 const mockStudents: Student[] = [
-    { regNum: 'SLDJ-2026-N5-0012', name: 'Kasun Perera', class: 'JLPT N5', status: 'paid' },
-    { regNum: 'SLDJ-2026-N4-0045', name: 'Amaya Silva', class: 'JLPT N4', status: 'overdue' },
+
 ];
 
 export function StudentTable() {
@@ -64,7 +63,7 @@ export function StudentTable() {
             {/* Header Controls */}
             <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                     <input
                         type="text"
                         placeholder="Search by name or Reg ID..."

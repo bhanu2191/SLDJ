@@ -4,20 +4,18 @@ import { useState, useEffect } from 'react';
 import { cn } from '../lib/utils';
 import { Phone, Mail, Calendar, MapPin, Loader2 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
-import { getStudent, Student } from '../lib/storage';
+import { getStudent, type Student } from '../lib/storage';
 
-const mockPayments = [
-    { id: '101', month: 'January 2026', amount: 5000, date: '2026-01-05', status: 'paid' as const },
-    { id: '102', month: 'February 2026', amount: 5000, date: undefined, status: 'pending' as const },
-    { id: '103', month: 'December 2025', amount: 5000, date: '2025-12-10', status: 'paid' as const },
-];
+
 
 export function StudentProfile() {
     const { id } = useParams<{ id: string }>();
     const [activeTab, setActiveTab] = useState<'details' | 'payments'>('details');
+
     const [student, setStudent] = useState<Student | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [payments, setPayments] = useState<any[]>([]);
 
     useEffect(() => {
         const loadStudent = async () => {
@@ -39,6 +37,25 @@ export function StudentProfile() {
         };
         loadStudent();
     }, [id]);
+
+    useEffect(() => {
+        const loadPayments = async () => {
+            if (id && activeTab === 'payments') {
+                try {
+                    const history = await window.electronAPI.getStudentPayments(id);
+                    // Map DB records to UI interface (add status: 'paid')
+                    const formattedHistory = history.map((p: any) => ({
+                        ...p,
+                        status: 'paid'
+                    }));
+                    setPayments(formattedHistory);
+                } catch (err) {
+                    console.error("Failed to load payments", err);
+                }
+            }
+        };
+        loadPayments();
+    }, [id, activeTab]);
 
     if (isLoading) {
         return (
@@ -142,7 +159,7 @@ export function StudentProfile() {
                         </div>
                     </div>
                 ) : (
-                    <PaymentHistoryList payments={mockPayments} />
+                    <PaymentHistoryList payments={payments} />
                 )}
             </div>
         </div>

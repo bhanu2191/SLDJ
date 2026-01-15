@@ -24,7 +24,7 @@ export function DashboardLayout() {
 
                     <div className="flex items-center gap-6">
                         <div className="relative hidden md:block">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                             <input
                                 type="text"
                                 placeholder="Quick search..."

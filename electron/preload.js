@@ -13,4 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteOperator: (id) => ipcRenderer.invoke('delete-operator', id),
     toggleOperatorStatus: (id, status) => ipcRenderer.invoke('toggle-operator-status', { id, status }),
     verifyOperator: (creds) => ipcRenderer.invoke('verify-operator', creds),
+
+    // Payment API
+    addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
+    getStudentPayments: (regNum) => ipcRenderer.invoke('get-student-payments', regNum),
 });

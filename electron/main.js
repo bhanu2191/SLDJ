@@ -1,4 +1,18 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
+
+// Disable Autofill to prevent "Request Autofill.enable failed" errors
+app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication,AutofillAddressEnabled');
+
+// Filter useless DevTools errors from stderr
+const originalStderrWrite = process.stderr.write;
+process.stderr.write = function (chunk, encoding, callback) {
+    const str = chunk.toString();
+    if (str.includes('Request Autofill.enable failed') || str.includes('Request Autofill.setAddresses failed')) {
+        return true;
+    }
+    return originalStderrWrite.call(process.stderr, chunk, encoding, callback);
+};
+
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -61,6 +75,21 @@ function initDB() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Payments Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            regNum TEXT NOT NULL,
+            amount REAL NOT NULL,
+            month TEXT NOT NULL,
+            date TEXT NOT NULL,
+            method TEXT NOT NULL,
+            type TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(regNum) REFERENCES students(regNum)
+        )
+    `);
 }
 
 initDB();
@@ -83,6 +112,10 @@ const createWindow = () => {
     if (!app.isPackaged) {
         mainWindow.loadURL('http://localhost:5173');
         mainWindow.webContents.openDevTools(); // Open DevTools to help debugging
+
+        mainWindow.on('close', () => {
+            mainWindow.webContents.closeDevTools();
+        });
     } else {
         // In production, load the built index.html
         mainWindow.loadFile(join(__dirname, '../dist/index.html'));
@@ -188,6 +221,105 @@ app.whenReady().then(() => {
         // For now, let's keep it flexible:
         const user = stmt.get(email, email, password);
         return user || null;
+    });
+
+    // --- IPC Handlers for Payments ---
+    ipcMain.handle('add-payment', (event, payment) => {
+        try {
+            console.log("Processing payment:", payment);
+            const insert = db.prepare(`
+                INSERT INTO payments (regNum, amount, month, date, method, type)
+                VALUES (@regNum, @amount, @month, @date, @method, @type)
+            `);
+            const info = insert.run(payment);
+
+            const updateStatus = db.prepare("UPDATE students SET status = 'paid', updated_at = CURRENT_TIMESTAMP WHERE regNum = ?");
+            updateStatus.run(payment.regNum);
+
+            console.log("Payment success, ID:", info.lastInsertRowid);
+            return { ...payment, id: info.lastInsertRowid };
+        } catch (err) {
+            console.error("Error in add-payment:", err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('get-student-payments', (event, regNum) => {
+        const stmt = db.prepare('SELECT * FROM payments WHERE regNum = ? ORDER BY date DESC');
+        return stmt.all(regNum);
+    });
+
+    // --- IPC Handlers for Dashboard ---
+    ipcMain.handle('get-dashboard-stats', () => {
+        const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        // Active Students (Total students for now)
+        const activeStudents = db.prepare('SELECT COUNT(*) as count FROM students').get().count;
+
+        // Monthly Revenue
+        const revenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE month = ?').get(currentMonth).total || 0;
+
+        // Pending Payments (Students who haven't paid this month)
+        // This is a bit complex. For simplicity: Total Active Students - Students who paid this month.
+        // Get count of unique students who paid this month
+        const paidCount = db.prepare('SELECT COUNT(DISTINCT regNum) as count FROM payments WHERE month = ?').get(currentMonth).count;
+        const pendingPayments = activeStudents - paidCount;
+
+        return {
+            totalStudents: activeStudents,
+            monthlyRevenue: revenue,
+            pendingPayments: Math.max(0, pendingPayments) // Ensure not negative
+        };
+    });
+
+    ipcMain.handle('get-revenue-chart', () => {
+        // Last 30 days revenue
+        // SQLite doesn't have a simple date range generator, so we might return existing data 
+        // and handle filling gaps in frontend, OR just return recent payments grouped by date.
+        // Let's return last 30 payments grouped by date for now.
+        const stmt = db.prepare(`
+            SELECT date, SUM(amount) as value 
+            FROM payments 
+            GROUP BY date 
+            ORDER BY date DESC 
+            LIMIT 30
+        `);
+        return stmt.all().reverse(); // Chronological order
+    });
+
+    ipcMain.handle('get-recent-activity', () => {
+        // Combine recent registrations and payments
+        // We can do two queries and merge/sort in JS
+        // Note: Students table uses regNum as PK, no 'id' column
+        const recentStudents = db.prepare('SELECT regNum, name, created_at FROM students ORDER BY created_at DESC LIMIT 5').all();
+        const recentPayments = db.prepare(`
+            SELECT p.id, s.name, p.amount, p.created_at 
+            FROM payments p 
+            JOIN students s ON p.regNum = s.regNum 
+            ORDER BY p.created_at DESC 
+            LIMIT 5
+        `).all();
+
+        const activities = [
+            ...recentStudents.map(s => ({
+                type: 'registration',
+                title: 'New Student Registered',
+                desc: `${s.name} - ${s.regNum}`,
+                time: s.created_at,
+                id: `reg-${s.regNum}`
+            })),
+            ...recentPayments.map(p => ({
+                type: 'payment',
+                title: 'Payment Received',
+                desc: `${p.name} - LKR ${p.amount}`,
+                time: p.created_at,
+                id: `pay-${p.id}`
+            }))
+        ];
+
+        // Sort by time descending and take top 5-10
+        activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        return activities.slice(0, 10);
     });
 
 });

@@ -36,9 +36,33 @@ export const Payments = () => {
         }
     };
 
-    const handleProcessPayment = () => {
-        setPaymentSuccess(true);
-        // Here we would integrate with backend/printer
+    const handleProcessPayment = async () => {
+        if (!selectedStudent) return;
+
+        const amount = 5000; // Hardcoded for now based on requirement
+        const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const date = new Date().toISOString().split('T')[0];
+
+        // Get selected method
+        const methodInput = document.querySelector('input[name="method"]:checked') as HTMLInputElement;
+        const method = methodInput ? methodInput.nextElementSibling?.textContent || 'Cash' : 'Cash';
+
+        const paymentData = {
+            regNum: selectedStudent.regNum,
+            amount: amount,
+            month: month,
+            date: date,
+            method: method,
+            type: 'Monthly Fee'
+        };
+
+        try {
+            await window.electronAPI.addPayment(paymentData);
+            setPaymentSuccess(true);
+        } catch (error) {
+            console.error("Payment failed", error);
+            alert("Failed to process payment");
+        }
     };
 
     return (
@@ -52,7 +76,7 @@ export const Payments = () => {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
                 <form onSubmit={handleSearch} className="flex gap-4">
                     <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
                         <input
                             type="text"
                             placeholder="Enter Student Registration ID (e.g., SLDJ-2026-N5-0012)"
