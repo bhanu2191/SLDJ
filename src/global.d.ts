@@ -23,6 +23,7 @@ declare global {
             addClassCategory: (category: any) => Promise<any>;
             updateClassCategory: (category: any) => Promise<any>;
             deleteClassCategory: (id: string | number) => Promise<string | number>;
+            sendReceiptEmail: (data: { email: string; studentName: string; amount: number; date: string; receiptNo: string; course: string }) => Promise<any>;
         };
     }
 }

@@ -18,6 +18,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import Database from 'better-sqlite3';
+import nodemailer from 'nodemailer';
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -355,6 +356,78 @@ app.whenReady().then(() => {
         const stmt = db.prepare('DELETE FROM class_categories WHERE id = ?');
         stmt.run(id);
         return id;
+    });
+
+    // --- IPC Handlers for Email ---
+    ipcMain.handle('send-receipt-email', async (event, { email, studentName, amount, date, receiptNo, course }) => {
+        // Configure Transporter (PLACEHOLDERS - User must update these)
+        const transporter = nodemailer.createTransport({
+            service: 'gmail', // or your SMTP provider
+            auth: {
+                user: 'bhanuabeysinghe244@gmail.com', // Replace with real email
+                pass: 'onbn vtfu xoxz mkom'     // Replace with real app password
+            }
+        });
+
+        // HTML Template
+        const htmlContent = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                <div style="text-align: center; background-color: #f8fafc; padding: 20px; border-radius: 10px 10px 0 0;">
+                    <img src="cid:logo" alt="SL Dream Japan" style="height: 80px; margin-bottom: 10px;" />
+                    <h1 style="color: #FF0000; margin: 0;">SL Dream Japan</h1>
+                    <p style="color: #64748b; margin-top: 5px;">Payment Receipt</p>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <p>Dear <strong>${studentName}</strong>,</p>
+                    <p>Thank you for your payment. Here are the details of your transaction:</p>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px 0; color: #64748b;">Receipt No</td>
+                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${receiptNo}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px 0; color: #64748b;">Date</td>
+                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${date}</td>
+                        </tr>
+                         <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px 0; color: #64748b;">Course/Class</td>
+                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${course}</td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px 0; color: #64748b;">Amount Paid</td>
+                            <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0d9488;">LKR ${amount}</td>
+                        </tr>
+                    </table>
+
+                    <div style="margin-top: 30px; text-align: center; color: #94a3b8; font-size: 12px;">
+                        <p>This is an automated message. Please do not reply to this email.</p>
+                        <p>&copy; ${new Date().getFullYear()} SL Dream Japan Institute. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const logoPath = join(__dirname, '../src/assets/SLDJ_PNG.png');
+
+        try {
+            await transporter.sendMail({
+                from: '"SL Dream Japan" <noreply@sldreamjapan.com>',
+                to: email,
+                subject: `Payment Receipt - ${receiptNo}`,
+                html: htmlContent,
+                attachments: [{
+                    filename: 'SLDJ_PNG.png',
+                    path: logoPath,
+                    cid: 'logo' // same cid value as in the html img src
+                }]
+            });
+            return { success: true };
+        } catch (error) {
+            console.error("Failed to send email:", error);
+            throw error;
+        }
     });
 
 });

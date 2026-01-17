@@ -28,4 +28,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addClassCategory: (category) => ipcRenderer.invoke('add-class-category', category),
     updateClassCategory: (category) => ipcRenderer.invoke('update-class-category', category),
     deleteClassCategory: (id) => ipcRenderer.invoke('delete-class-category', id),
+    sendReceiptEmail: (data) => ipcRenderer.invoke('send-receipt-email', data),
 });

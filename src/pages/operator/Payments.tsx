@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Search, CreditCard, Printer, Check } from 'lucide-react';
+import { Search, CreditCard, Printer, Check, Mail } from 'lucide-react';
 
 export const Payments = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [classCategories, setClassCategories] = useState<any[]>([]);
+    const [sendingEmail, setSendingEmail] = useState(false);
 
     // Fetch class categories on mount
     useEffect(() => {
@@ -51,6 +52,7 @@ export const Payments = () => {
                     setSelectedStudent({
                         id: student.regNum,
                         name: student.name,
+                        email: student.email,
                         regNum: student.regNum,
                         class: student.class,
                         monthlyFee: classFee,
@@ -92,6 +94,32 @@ export const Payments = () => {
         } catch (error) {
             console.error("Payment failed", error);
             alert("Failed to process payment");
+        }
+    };
+
+    const handleSendEmail = async () => {
+        if (!selectedStudent || !selectedStudent.email) {
+            alert("No email address found for this student.");
+            return;
+        }
+
+        setSendingEmail(true);
+        try {
+            const date = new Date().toISOString().split('T')[0];
+            await window.electronAPI.sendReceiptEmail({
+                email: selectedStudent.email,
+                studentName: selectedStudent.name,
+                amount: selectedStudent.dueAmount, // Assuming full payment of due amount
+                date: date,
+                receiptNo: 'REC-' + Date.now().toString().slice(-6),
+                course: selectedStudent.class
+            });
+            alert("Email receipt sent successfully!");
+        } catch (error) {
+            console.error("Failed to send email:", error);
+            alert("Failed to send email receipt. Please check internet connection or settings.");
+        } finally {
+            setSendingEmail(false);
         }
     };
 
@@ -189,6 +217,14 @@ export const Payments = () => {
                                         className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 from-medium"
                                     >
                                         Next Student
+                                    </button>
+                                    <button
+                                        onClick={handleSendEmail}
+                                        disabled={sendingEmail}
+                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium flex items-center gap-2 disabled:opacity-50"
+                                    >
+                                        <Mail size={18} />
+                                        {sendingEmail ? 'Sending...' : 'Send Email Receipt'}
                                     </button>
                                     <button className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium flex items-center gap-2">
                                         <Printer size={18} />
