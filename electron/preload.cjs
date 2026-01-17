@@ -22,4 +22,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
     getRevenueChart: () => ipcRenderer.invoke('get-revenue-chart'),
     getRecentActivity: () => ipcRenderer.invoke('get-recent-activity'),
+
+    // Class Categories API
+    getClassCategories: () => ipcRenderer.invoke('get-class-categories'),
+    addClassCategory: (category) => ipcRenderer.invoke('add-class-category', category),
+    updateClassCategory: (category) => ipcRenderer.invoke('update-class-category', category),
+    deleteClassCategory: (id) => ipcRenderer.invoke('delete-class-category', id),
 });

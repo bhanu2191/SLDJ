@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, CreditCard, Printer, Check } from 'lucide-react';
 
 export const Payments = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [classCategories, setClassCategories] = useState<any[]>([]);
+
+    // Fetch class categories on mount
+    useEffect(() => {
+        const loadCategories = async () => {
+            try {
+                const categories = await window.electronAPI.getClassCategories();
+                setClassCategories(categories);
+            } catch (err) {
+                console.error("Failed to load class categories", err);
+            }
+        };
+        loadCategories();
+    }, []);
 
     // Search for demo
     const handleSearch = async (e: React.FormEvent) => {
@@ -18,14 +32,30 @@ export const Payments = () => {
                 const student = await window.electronAPI.getStudent(searchQuery);
 
                 if (student) {
+                    // Find matching category to get the fee
+                    const category = classCategories.find(cat => cat.name === student.class);
+                    const classFee = category ? category.fee : 0;
+
+                    // Fetch payment history
+                    let lastPaymentDate = 'No record';
+                    try {
+                        // @ts-ignore
+                        const payments = await window.electronAPI.getStudentPayments(student.regNum);
+                        if (payments && payments.length > 0) {
+                            lastPaymentDate = payments[0].date;
+                        }
+                    } catch (err) {
+                        console.error("Failed to fetch payments", err);
+                    }
+
                     setSelectedStudent({
                         id: student.regNum,
                         name: student.name,
                         regNum: student.regNum,
                         class: student.class,
-                        monthlyFee: 5000, // Hardcoded for now, or add to DB schema
-                        lastPayment: 'No record', // Need separate payments table to track this real history
-                        dueAmount: 5000
+                        monthlyFee: classFee,
+                        lastPayment: lastPaymentDate,
+                        dueAmount: classFee
                     });
                 } else {
                     alert('Student not found');
@@ -39,7 +69,7 @@ export const Payments = () => {
     const handleProcessPayment = async () => {
         if (!selectedStudent) return;
 
-        const amount = 5000; // Hardcoded for now based on requirement
+        const amount = selectedStudent.dueAmount; // Use the dynamic amount
         const month = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
         const date = new Date().toISOString().split('T')[0];
 

@@ -1,4 +1,4 @@
-import { UserPlus, CreditCard, ArrowRight } from 'lucide-react';
+import { UserPlus, CreditCard } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
 interface ActivityFeedProps {
@@ -20,9 +20,6 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
         <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col">
             <div className="flex items-center justify-between mb-6">
                 <h3 className="font-semibold text-slate-800 text-lg">Recent Activity</h3>
-                <button className="text-primary text-sm font-medium hover:underline flex items-center gap-1">
-                    View All <ArrowRight className="h-4 w-4" />
-                </button>
             </div>
 
             <div className="space-y-6 overflow-y-auto flex-1 pr-2">

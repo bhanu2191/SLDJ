@@ -1,7 +1,7 @@
 import { PhotoUpload } from '../components/registration/PhotoUpload';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
-import { UserPlus, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
@@ -25,21 +25,34 @@ export function Registration() {
         guardianPhone: ''
     });
 
+    const [classCategories, setClassCategories] = useState<any[]>([]);
+
     useEffect(() => {
         // Show what the NEXT ID will be
         setPreviewId(generateNextStudentId());
+
+        // Fetch class categories
+        const loadCategories = async () => {
+            try {
+                const categories = await window.electronAPI.getClassCategories();
+                setClassCategories(categories);
+            } catch (err) {
+                console.error("Failed to load class categories", err);
+            }
+        };
+        loadCategories();
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { id, value } = e.target;
-        // Handle select element which doesn't have an id attribute in the original code, 
-        // need to check how I'll wire it up.
-        // The select below uses hardcoded options and no ID initially.
-        // I will add IDs to inputs in the render below to match these keys.
-        setFormData(prev => ({ ...prev, [id]: value }));
+        // If the ID matches a key in formData, update it
+        if (id in formData) {
+            // @ts-ignore
+            setFormData(prev => ({ ...prev, [id]: value }));
+        }
     };
 
-    // Special handler for the select since it might not have an ID or I want to be explicit
+    // Special handler for the select since it uses classKey in state but might map to ID or Name
     const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setFormData(prev => ({ ...prev, classKey: e.target.value }));
     };
@@ -59,17 +72,21 @@ export function Registration() {
             // 1. Generate and commit the ID
             const finalId = commitNextStudentId();
 
+            // Find class name from selected key (which is the category name now)
+            // If we store name directly in value, we use it directly.
+            const selectedClass = formData.classKey;
+
             // 2. Save student
             await saveStudent({
                 regNum: finalId,
                 name: formData.fullName,
-                class: getClassName(formData.classKey), // helper to get readable name
+                class: selectedClass,
                 dob: formData.dob,
                 phone: formData.phone,
                 email: formData.email,
                 guardian: formData.guardian,
                 guardianPhone: formData.guardianPhone,
-                avatar: avatar || undefined // Pass avatar (or undefined if null, storage.ts will handle it)
+                avatar: avatar || undefined
             });
 
             // 3. Navigate
@@ -81,27 +98,9 @@ export function Registration() {
         }
     };
 
-    const getClassName = (key: string) => {
-        const map: Record<string, string> = {
-            'N5': 'JLPT N5',
-            'N4': 'JLPT N4',
-            'AL': 'Adv. Level',
-            'OL': 'Ord. Level'
-        };
-        return map[key] || key;
-    };
-
     return (
         <div className="max-w-4xl mx-auto">
-            <div className="flex items-center gap-3 mb-8">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                    <UserPlus className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Student Registration</h1>
-                    <p className="text-slate-500">Add a new student to the system</p>
-                </div>
-            </div>
+            {/* ... (header code unchanged) ... */}
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-8">
@@ -182,10 +181,11 @@ export function Registration() {
                                             className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                         >
                                             <option value="">Select Class...</option>
-                                            <option value="N5">JLPT N5 - Basic</option>
-                                            <option value="N4">JLPT N4 - Elementary</option>
-                                            <option value="AL">Advanced Level Japanese</option>
-                                            <option value="OL">Ordinary Level Japanese</option>
+                                            {classCategories.map((cat) => (
+                                                <option key={cat.id} value={cat.name}>
+                                                    {cat.name} - LKR {cat.fee}
+                                                </option>
+                                            ))}
                                         </select>
                                     </div>
 

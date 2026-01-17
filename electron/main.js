@@ -1,7 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 
 // Disable Autofill to prevent "Request Autofill.enable failed" errors
-app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication,AutofillAddressEnabled');
+app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication,AutofillAddressEnabled,PasswordManager,AutofillCreditCardEnabled');
+app.commandLine.appendSwitch('disable-save-password-bubble');
 
 // Filter useless DevTools errors from stderr
 const originalStderrWrite = process.stderr.write;
@@ -88,6 +89,16 @@ function initDB() {
             type TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(regNum) REFERENCES students(regNum)
+        )
+    `);
+
+    // Class Categories Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS class_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            fee REAL NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 }
@@ -317,9 +328,33 @@ app.whenReady().then(() => {
             }))
         ];
 
-        // Sort by time descending and take top 5-10
+        // Sort by time descending and take top 5
         activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-        return activities.slice(0, 10);
+        return activities.slice(0, 5);
+    });
+
+    // --- IPC Handlers for Class Categories ---
+    ipcMain.handle('get-class-categories', () => {
+        const stmt = db.prepare('SELECT * FROM class_categories ORDER BY created_at ASC');
+        return stmt.all();
+    });
+
+    ipcMain.handle('add-class-category', (event, category) => {
+        const stmt = db.prepare('INSERT INTO class_categories (name, fee) VALUES (@name, @fee)');
+        const info = stmt.run(category);
+        return { ...category, id: info.lastInsertRowid };
+    });
+
+    ipcMain.handle('update-class-category', (event, category) => {
+        const stmt = db.prepare('UPDATE class_categories SET name = @name, fee = @fee WHERE id = @id');
+        stmt.run(category);
+        return category;
+    });
+
+    ipcMain.handle('delete-class-category', (event, id) => {
+        const stmt = db.prepare('DELETE FROM class_categories WHERE id = ?');
+        stmt.run(id);
+        return id;
     });
 
 });

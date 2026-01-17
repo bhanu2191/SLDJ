@@ -17,6 +17,12 @@ declare global {
             getDashboardStats: () => Promise<{ totalStudents: number, monthlyRevenue: number, pendingPayments: number }>;
             getRevenueChart: () => Promise<any[]>;
             getRecentActivity: () => Promise<any[]>;
+
+            // Class Categories API
+            getClassCategories: () => Promise<any[]>;
+            addClassCategory: (category: any) => Promise<any>;
+            updateClassCategory: (category: any) => Promise<any>;
+            deleteClassCategory: (id: string | number) => Promise<string | number>;
         };
     }
 }
