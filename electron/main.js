@@ -145,13 +145,38 @@ app.whenReady().then(() => {
 
     // --- IPC Handlers for Students ---
     ipcMain.handle('get-students', () => {
-        const stmt = db.prepare('SELECT * FROM students ORDER BY created_at DESC');
-        return stmt.all();
+        const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        // Dynamic Status Query:
+        // We select all student info, but override 'status' based on whether a payment exists for THIS month.
+        const stmt = db.prepare(`
+            SELECT s.*, 
+            CASE 
+                WHEN MAX(p.id) IS NOT NULL THEN 'paid' 
+                ELSE 'pending' 
+            END as status
+            FROM students s
+            LEFT JOIN payments p ON s.regNum = p.regNum AND p.month = ?
+            GROUP BY s.regNum
+            ORDER BY s.created_at DESC
+        `);
+        return stmt.all(currentMonth);
     });
 
     ipcMain.handle('get-student', (event, regNum) => {
-        const stmt = db.prepare('SELECT * FROM students WHERE regNum = ?');
-        return stmt.get(regNum);
+        const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        const stmt = db.prepare(`
+            SELECT s.*, 
+            CASE 
+                WHEN p.id IS NOT NULL THEN 'paid' 
+                ELSE 'pending' 
+            END as status
+            FROM students s
+            LEFT JOIN payments p ON s.regNum = p.regNum AND p.month = ?
+            WHERE s.regNum = ?
+        `);
+        return stmt.get(currentMonth, regNum);
     });
 
     ipcMain.handle('add-student', (event, student) => {
