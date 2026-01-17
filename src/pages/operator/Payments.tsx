@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Search, CreditCard, Printer, Check, Mail } from 'lucide-react';
 
 export const Payments = () => {
@@ -7,6 +8,8 @@ export const Payments = () => {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [classCategories, setClassCategories] = useState<any[]>([]);
     const [sendingEmail, setSendingEmail] = useState(false);
+
+    const location = useLocation();
 
     // Fetch class categories on mount
     useEffect(() => {
@@ -21,21 +24,39 @@ export const Payments = () => {
         loadCategories();
     }, []);
 
-    // Search for demo
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
+    // Handle navigation from student list
+    useEffect(() => {
+        if (location.state?.studentRegNum) {
+            setSearchQuery(location.state.studentRegNum);
+            searchStudent(location.state.studentRegNum);
+            // clean up state to prevent re-triggering if needed, but react-router state persists. 
+            // We might want to clear it or just let it be. 
+            // For now, it's fine.
+        }
+    }, [location.state]);
+
+    const searchStudent = async (query: string) => {
         setPaymentSuccess(false);
         setSelectedStudent(null);
 
-        if (searchQuery.length > 0) {
+        if (query.length > 0) {
             try {
                 // @ts-ignore
-                const student = await window.electronAPI.getStudent(searchQuery);
+                const student = await window.electronAPI.getStudent(query);
 
                 if (student) {
                     // Find matching category to get the fee
-                    const category = classCategories.find(cat => cat.name === student.class);
-                    const classFee = category ? category.fee : 0;
+                    // If category is not loaded yet, we might miss this. 
+
+                    // Simple logic: ensure categories are loaded
+                    let fees = classCategories;
+                    if (classCategories.length === 0) {
+                        fees = await window.electronAPI.getClassCategories();
+                        setClassCategories(fees);
+                    }
+
+                    const catToUse = fees.find(cat => cat.name === student.class);
+                    const classFee = catToUse ? catToUse.fee : 0;
 
                     // Fetch payment history
                     let lastPaymentDate = 'No record';
@@ -66,6 +87,12 @@ export const Payments = () => {
                 console.error("Search failed", error);
             }
         }
+    };
+
+    // Search for demo
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+        searchStudent(searchQuery);
     };
 
     const handleProcessPayment = async () => {

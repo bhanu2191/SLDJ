@@ -1,4 +1,4 @@
-import { Search, MoreHorizontal, User } from 'lucide-react';
+import { Search, MoreHorizontal, User, CreditCard } from 'lucide-react';
 import { PaymentStatusBadge } from './PaymentStatusBadge';
 import { cn } from '../../lib/utils';
 import { useState, useEffect } from 'react';
@@ -104,7 +104,7 @@ export function StudentTable() {
                             <th className="px-6 py-4">Reg Number</th>
                             <th className="px-6 py-4">Class</th>
                             <th className="px-6 py-4">Status</th>
-                            {userRole === 'admin' && <th className="px-6 py-4 text-right">Actions</th>}
+                            <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -138,17 +138,29 @@ export function StudentTable() {
                                     <td className="px-6 py-4">
                                         <PaymentStatusBadge status={student.status} />
                                     </td>
-                                    {userRole === 'admin' && (
-                                        <td className="px-6 py-4 text-right">
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex items-center justify-end gap-2">
                                             <button
-                                                className="p-2 text-red-500 hover:text-red-700 transition-colors hover:bg-red-50 rounded-full"
-                                                onClick={(e) => handleDelete(student.regNum, e)}
-                                                title="Delete Student"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    navigate('/operator/payments', { state: { studentRegNum: student.regNum } });
+                                                }}
+                                                className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-full transition-colors"
+                                                title="Collect Payment"
                                             >
-                                                <MoreHorizontal className="h-5 w-5" />
+                                                <CreditCard className="h-5 w-5" />
                                             </button>
-                                        </td>
-                                    )}
+                                            {userRole === 'admin' && (
+                                                <button
+                                                    className="p-2 text-red-500 hover:text-red-700 transition-colors hover:bg-red-50 rounded-full"
+                                                    onClick={(e) => handleDelete(student.regNum, e)}
+                                                    title="Delete Student"
+                                                >
+                                                    <MoreHorizontal className="h-5 w-5" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
                             );
                         })}
