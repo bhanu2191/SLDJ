@@ -29,4 +29,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     updateClassCategory: (category) => ipcRenderer.invoke('update-class-category', category),
     deleteClassCategory: (id) => ipcRenderer.invoke('delete-class-category', id),
     sendReceiptEmail: (data) => ipcRenderer.invoke('send-receipt-email', data),
+
+    // Admin Payment Analytics
+    getAdminPaymentStats: () => ipcRenderer.invoke('get-admin-payment-stats'),
+    getAllPayments: () => ipcRenderer.invoke('get-all-payments'),
+    getRevenueByClass: () => ipcRenderer.invoke('get-revenue-by-class'),
+    getMonthlyRevenueTrend: () => ipcRenderer.invoke('get-monthly-revenue-trend'),
 });
