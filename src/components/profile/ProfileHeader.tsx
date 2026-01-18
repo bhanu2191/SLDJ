@@ -6,7 +6,7 @@ interface ProfileHeaderProps {
     student: {
         name: string;
         regNum: string;
-        class: string;
+        class: string | string[];
         photo?: string;
         email: string;
     };
@@ -47,7 +47,7 @@ export function ProfileHeader({ student }: ProfileHeaderProps) {
                                 </span>
                             )}
                         </div>
-                        <p className="text-slate-500 font-mono mt-1">{student.regNum} • {student.class}</p>
+                        <p className="text-slate-500 font-mono mt-1">{student.regNum} • {Array.isArray(student.class) ? student.class.join(', ') : student.class}</p>
                     </div>
 
                     {/* Danger Zone */}

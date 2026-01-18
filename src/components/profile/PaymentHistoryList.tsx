@@ -5,6 +5,7 @@ interface Payment {
     month: string;
     amount: number;
     date?: string;
+    class?: string;
     status: 'paid' | 'pending' | 'overdue';
 }
 
@@ -22,6 +23,7 @@ export function PaymentHistoryList({ payments }: PaymentHistoryListProps) {
                 <table className="w-full text-sm text-left">
                     <thead className="bg-slate-50 text-slate-500 font-medium">
                         <tr>
+                            <th className="px-6 py-3">Class</th>
                             <th className="px-6 py-3">Month / Year</th>
                             <th className="px-6 py-3">Amount</th>
                             <th className="px-6 py-3">Paid Date</th>
@@ -32,6 +34,7 @@ export function PaymentHistoryList({ payments }: PaymentHistoryListProps) {
                     <tbody className="divide-y divide-slate-100">
                         {payments.map(payment => (
                             <tr key={payment.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 font-medium text-slate-800">{payment.class || 'N/A'}</td>
                                 <td className="px-6 py-4 font-medium text-slate-700">{payment.month}</td>
                                 <td className="px-6 py-4">LKR {payment.amount.toLocaleString()}</td>
                                 <td className="px-6 py-4 text-slate-500">{payment.date || '-'}</td>
