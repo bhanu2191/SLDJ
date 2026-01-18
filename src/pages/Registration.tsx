@@ -1,4 +1,3 @@
-import { PhotoUpload } from '../components/registration/PhotoUpload';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
 import { Save, Check, RotateCcw } from 'lucide-react';
@@ -13,7 +12,6 @@ export function Registration() {
     const navigate = useNavigate();
     const { userRole } = useAuth();
     const [previewId, setPreviewId] = useState('');
-    const [avatar, setAvatar] = useState<string | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -53,13 +51,73 @@ export function Registration() {
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent, nextId: string) => {
+    const validateField = (name: string, value: string): boolean => {
+        switch (name) {
+            case 'fullName':
+                if (!value.trim()) {
+                    showCuteAlert('Oops!', 'Student Name is required!', 'error', 'fullName');
+                    return false;
+                }
+                return true;
+            case 'dob':
+                if (!value) {
+                    showCuteAlert('Hey!', 'Date of Birth is missing.', 'error', 'dob');
+                    return false;
+                }
+                return true;
+            case 'phone':
+                const phoneRegex = /^0\d{9}$/;
+                if (!value || !phoneRegex.test(value)) {
+                    showCuteAlert('Check Phone', 'Phone must be 10 digits starting with 0.', 'error', 'phone');
+                    return false;
+                }
+                return true;
+            case 'email':
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (value && !emailRegex.test(value)) {
+                    showCuteAlert('Email Error', 'That email looks invalid.', 'error', 'email');
+                    return false;
+                }
+                return true;
+            case 'guardian':
+                if (!value.trim()) {
+                    showCuteAlert('Guardian?', 'Guardian Name is required.', 'error', 'guardian');
+                    return false;
+                }
+                return true;
+            case 'guardianPhone':
+                const gPhoneRegex = /^0\d{9}$/;
+                if (!value || !gPhoneRegex.test(value)) {
+                    showCuteAlert('Guardian Phone', 'Must be 10 digits starting with 0.', 'error', 'guardianPhone');
+                    return false;
+                }
+                return true;
+            default:
+                return true;
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent, currentId: string, nextId: string | null) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            const nextElement = document.getElementById(nextId);
-            if (nextElement) {
-                nextElement.focus();
+
+            // 1. Validate Current Field
+            // @ts-ignore
+            const isValid = validateField(currentId, formData[currentId]);
+
+            if (isValid) {
+                // 2. If valid, move to next
+                if (nextId) {
+                    const nextElement = document.getElementById(nextId);
+                    if (nextElement) {
+                        nextElement.focus();
+                    }
+                } else {
+                    // If no nextId, it means we are at the end (Submit)
+                    handleRegister();
+                }
             }
+            // If invalid, validateField handles the alert and we stay put (or auto-focus back via alert didClose)
         }
     };
 
@@ -109,7 +167,6 @@ export function Registration() {
             guardian: '',
             guardianPhone: ''
         });
-        setAvatar(null);
         showCuteAlert('Cleared!', 'Form has been reset.', 'success');
     };
 
@@ -174,8 +231,7 @@ export function Registration() {
                 phone: formData.phone,
                 email: formData.email,
                 guardian: formData.guardian,
-                guardianPhone: formData.guardianPhone,
-                avatar: avatar || undefined
+                guardianPhone: formData.guardianPhone
             });
 
             // 3. Navigate
@@ -226,7 +282,6 @@ export function Registration() {
 
                         {/* Left Column: Photo & Personal Info */}
                         <div className="lg:col-span-1 space-y-6">
-                            <PhotoUpload onImageSelect={setAvatar} />
 
                             <div className="space-y-4">
                                 <div className="space-y-2">
@@ -251,7 +306,7 @@ export function Registration() {
                                         placeholder="e.g. Kasun Perera"
                                         value={formData.fullName}
                                         onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDown(e, 'dob')}
+                                        onKeyDown={(e) => handleKeyDown(e, 'fullName', 'dob')}
                                     />
                                 </div>
 
@@ -262,7 +317,7 @@ export function Registration() {
                                         type="date"
                                         value={formData.dob}
                                         onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDown(e, 'phone')}
+                                        onKeyDown={(e) => handleKeyDown(e, 'dob', 'phone')}
                                     />
                                 </div>
 
@@ -274,7 +329,7 @@ export function Registration() {
                                         placeholder="077xxxxxxx"
                                         value={formData.phone}
                                         onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDown(e, 'email')}
+                                        onKeyDown={(e) => handleKeyDown(e, 'phone', 'email')}
                                     />
                                 </div>
 
@@ -286,7 +341,7 @@ export function Registration() {
                                         placeholder="student@example.com"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDown(e, 'guardian')}
+                                        onKeyDown={(e) => handleKeyDown(e, 'email', 'guardian')}
                                     />
                                 </div>
                             </div>
@@ -301,7 +356,7 @@ export function Registration() {
                                             placeholder="Parent/Guardian Name"
                                             value={formData.guardian}
                                             onChange={handleChange}
-                                            onKeyDown={(e) => handleKeyDown(e, 'guardianPhone')}
+                                            onKeyDown={(e) => handleKeyDown(e, 'guardian', 'guardianPhone')}
                                         />
                                     </div>
 
@@ -313,12 +368,7 @@ export function Registration() {
                                             placeholder="077xxxxxxx"
                                             value={formData.guardianPhone}
                                             onChange={handleChange}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    handleRegister();
-                                                }
-                                            }}
+                                            onKeyDown={(e) => handleKeyDown(e, 'guardianPhone', null)}
                                         />
                                     </div>
                                 </div>
