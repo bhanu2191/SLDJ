@@ -10,7 +10,8 @@ interface Student {
     // id removed
     regNum: string;
     name: string;
-    class: string;
+    class: string | string[];
+    classStatuses?: { className: string, status: 'paid' | 'pending' | 'overdue' }[];
     status: 'paid' | 'pending' | 'overdue';
     avatar?: string;
 }
@@ -133,7 +134,25 @@ export function StudentTable() {
                                     </td>
                                     <td className="px-6 py-4 font-mono text-slate-500">{student.regNum}</td>
                                     <td className="px-6 py-4 text-slate-600">
-                                        <span className="px-2 py-1 rounded bg-slate-100 text-xs font-medium">{student.class}</span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {student.classStatuses ? (
+                                                student.classStatuses.map((cs, idx) => (
+                                                    <span key={idx} className={cn(
+                                                        "px-2 py-1 rounded text-xs font-medium border",
+                                                        cs.status === 'paid' ? "bg-green-50 text-green-700 border-green-200" :
+                                                            cs.status === 'overdue' ? "bg-red-50 text-red-700 border-red-200" :
+                                                                "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                                    )}>
+                                                        {cs.className}
+                                                        {cs.status !== 'pending' && <span className="ml-1 opacity-75">({cs.status})</span>}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="px-2 py-1 rounded bg-slate-100 text-xs font-medium">
+                                                    {Array.isArray(student.class) ? student.class.join(', ') : student.class}
+                                                </span>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <PaymentStatusBadge status={student.status} />

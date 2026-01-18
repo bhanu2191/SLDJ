@@ -4,11 +4,12 @@ export interface Student {
     dob?: string;
     phone?: string;
     email?: string;
-    class: string;
+    class: string | string[]; // Can be array now
     guardian?: string;
     guardianPhone?: string;
     status: 'paid' | 'pending' | 'overdue';
     avatar?: string;
+    classStatuses?: { className: string, status: 'paid' | 'pending' | 'overdue' }[];
 }
 
 export async function getStoredStudents(): Promise<Student[]> {

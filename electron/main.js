@@ -88,10 +88,29 @@ function initDB() {
             date TEXT NOT NULL,
             method TEXT NOT NULL,
             type TEXT NOT NULL,
+            class TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(regNum) REFERENCES students(regNum)
         )
     `);
+
+    // Migration for existing databases without 'class' column in payments
+    try {
+        db.exec("ALTER TABLE payments ADD COLUMN class TEXT");
+    } catch (e) {
+        // Ignore error if column already exists
+    }
+
+    // Migration for students table columns (guardian, guardianPhone, avatar)
+    // We try to add them one by one. If they exist, it throws, we ignore.
+    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone'];
+    studentCols.forEach(col => {
+        try {
+            db.exec(`ALTER TABLE students ADD COLUMN ${col} TEXT`);
+        } catch (e) {
+            // Ignore
+        }
+    });
 
     // Class Categories Table
     db.exec(`
@@ -145,50 +164,130 @@ app.whenReady().then(() => {
 
     // --- IPC Handlers for Students ---
     ipcMain.handle('get-students', () => {
-        const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const now = new Date();
+        const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const dayOfMonth = now.getDate();
+        const isLate = dayOfMonth > 10;
 
-        // Dynamic Status Query:
-        // We select all student info, but override 'status' based on whether a payment exists for THIS month.
-        const stmt = db.prepare(`
-            SELECT s.*, 
-            CASE 
-                WHEN MAX(p.id) IS NOT NULL THEN 'paid' 
-                ELSE 'pending' 
-            END as status
-            FROM students s
-            LEFT JOIN payments p ON s.regNum = p.regNum AND p.month = ?
-            GROUP BY s.regNum
-            ORDER BY s.created_at DESC
-        `);
-        return stmt.all(currentMonth);
+        const students = db.prepare('SELECT * FROM students ORDER BY created_at DESC').all();
+        // Get this month's payments with class info
+        const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+
+        // Create map of regNum -> Set of paid classes
+        const paymentMap = {};
+        payments.forEach(p => {
+            if (!paymentMap[p.regNum]) paymentMap[p.regNum] = new Set();
+            if (p.class) paymentMap[p.regNum].add(p.class);
+        });
+
+        return students.map(s => {
+            let classes = [];
+            try {
+                // Try parsing as JSON array
+                classes = JSON.parse(s.class);
+            } catch (e) {
+                // If not JSON, it's a single string legacy value
+                classes = [s.class];
+            }
+            if (!Array.isArray(classes)) classes = [s.class]; // Fallback
+
+            // Calculate status for each class
+            const classStatuses = classes.map(clsName => {
+                // Logic: 
+                // Paid if in paymentMap
+                // Overdue if not paid AND isLate
+                // Pending otherwise
+                const isPaid = paymentMap[s.regNum]?.has(clsName);
+                let status = 'pending';
+                if (isPaid) status = 'paid';
+                else if (isLate) status = 'overdue';
+
+                return { className: clsName, status };
+            });
+
+            // Aggregate status for backward compatibility (e.g. for simple badges or sorting)
+            // If ANY are overdue -> overdue
+            // Else if ANY are pending -> pending
+            // Else -> paid
+            let aggStatus = 'paid';
+            if (classStatuses.some(c => c.status === 'overdue')) aggStatus = 'overdue';
+            else if (classStatuses.some(c => c.status === 'pending')) aggStatus = 'pending';
+
+            return {
+                ...s,
+                class: classes, // Return array now (frontend must handle)
+                classStatuses, // Detailed info
+                status: aggStatus // Aggregate status
+            };
+        });
     });
 
     ipcMain.handle('get-student', (event, regNum) => {
-        const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+        const now = new Date();
+        const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const dayOfMonth = now.getDate();
+        const isLate = dayOfMonth > 10;
 
-        const stmt = db.prepare(`
-            SELECT s.*, 
-            CASE 
-                WHEN p.id IS NOT NULL THEN 'paid' 
-                ELSE 'pending' 
-            END as status
-            FROM students s
-            LEFT JOIN payments p ON s.regNum = p.regNum AND p.month = ?
-            WHERE s.regNum = ?
-        `);
-        return stmt.get(currentMonth, regNum);
+        const student = db.prepare('SELECT * FROM students WHERE regNum = ?').get(regNum);
+        if (!student) return null;
+
+        const payments = db.prepare('SELECT class FROM payments WHERE regNum = ? AND month = ?').all(regNum, currentMonth);
+        const paidClasses = new Set(payments.map(p => p.class));
+
+        let classes = [];
+        try {
+            classes = JSON.parse(student.class);
+        } catch (e) {
+            classes = [student.class];
+        }
+        if (!Array.isArray(classes)) classes = [student.class];
+
+        const classStatuses = classes.map(clsName => {
+            const isPaid = paidClasses.has(clsName);
+            let status = 'pending';
+            if (isPaid) status = 'paid';
+            else if (isLate) status = 'overdue';
+            return { className: clsName, status };
+        });
+
+        let aggStatus = 'paid';
+        if (classStatuses.some(c => c.status === 'overdue')) aggStatus = 'overdue';
+        else if (classStatuses.some(c => c.status === 'pending')) aggStatus = 'pending';
+
+        return {
+            ...student,
+            class: classes,
+            classStatuses,
+            status: aggStatus
+        };
     });
 
     ipcMain.handle('add-student', (event, student) => {
-        const stmt = db.prepare(`
-          INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar)
-          VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar)
-      `);
-        stmt.run(student);
-        return student;
+        try {
+            // Ensure class is stored as JSON string if array
+            const studentToSave = { ...student };
+            if (Array.isArray(studentToSave.class)) {
+                studentToSave.class = JSON.stringify(studentToSave.class);
+            }
+
+            const stmt = db.prepare(`
+            INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar)
+            VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar)
+        `);
+            stmt.run(studentToSave);
+            return studentToSave;
+        } catch (err) {
+            console.error("Failed to add student:", err);
+            throw err;
+        }
     });
 
     ipcMain.handle('update-student', (event, student) => {
+        const studentToSave = { ...student };
+        if (Array.isArray(studentToSave.class)) {
+            studentToSave.class = JSON.stringify(studentToSave.class);
+        }
+
         const stmt = db.prepare(`
           UPDATE students SET 
             name = @name, 
@@ -203,8 +302,8 @@ app.whenReady().then(() => {
             updated_at = CURRENT_TIMESTAMP
           WHERE regNum = @regNum
       `);
-        stmt.run(student);
-        return student;
+        stmt.run(studentToSave);
+        return studentToSave;
     });
 
     ipcMain.handle('delete-student', (event, regNum) => {
@@ -265,13 +364,15 @@ app.whenReady().then(() => {
         try {
             console.log("Processing payment:", payment);
             const insert = db.prepare(`
-                INSERT INTO payments (regNum, amount, month, date, method, type)
-                VALUES (@regNum, @amount, @month, @date, @method, @type)
+                INSERT INTO payments (regNum, amount, month, date, method, type, class)
+                VALUES (@regNum, @amount, @month, @date, @method, @type, @class)
             `);
             const info = insert.run(payment);
 
-            const updateStatus = db.prepare("UPDATE students SET status = 'paid', updated_at = CURRENT_TIMESTAMP WHERE regNum = ?");
-            updateStatus.run(payment.regNum);
+            // We do NOT update student table status anymore because it's calculated dynamically.
+            // But we might want to update updated_at just in case.
+            const updateTime = db.prepare("UPDATE students SET updated_at = CURRENT_TIMESTAMP WHERE regNum = ?");
+            updateTime.run(payment.regNum);
 
             console.log("Payment success, ID:", info.lastInsertRowid);
             return { ...payment, id: info.lastInsertRowid };

@@ -1,12 +1,13 @@
 import { PhotoUpload } from '../components/registration/PhotoUpload';
 import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/Label';
-import { Save } from 'lucide-react';
+import { Save, Check, RotateCcw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
 import { saveStudent } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
+import Swal from 'sweetalert2';
 
 export function Registration() {
     const navigate = useNavigate();
@@ -20,7 +21,7 @@ export function Registration() {
         dob: '',
         phone: '',
         email: '',
-        classKey: '',
+        selectedClasses: [] as string[], // Changed from classKey string
         guardian: '',
         guardianPhone: ''
     });
@@ -52,19 +53,111 @@ export function Registration() {
         }
     };
 
-    // Special handler for the select since it uses classKey in state but might map to ID or Name
-    const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setFormData(prev => ({ ...prev, classKey: e.target.value }));
+    const handleKeyDown = (e: React.KeyboardEvent, nextId: string) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextElement = document.getElementById(nextId);
+            if (nextElement) {
+                nextElement.focus();
+            }
+        }
+    };
+
+    // "Cute & Small" Alert Configuration
+    const showCuteAlert = (title: string, text: string, icon: 'success' | 'error' | 'warning', focusId?: string) => {
+        Swal.fire({
+            title: title,
+            text: text,
+            icon: icon,
+            width: 280, // Very small width
+            padding: '1rem',
+            background: '#ffffff',
+            confirmButtonColor: icon === 'error' ? '#FF8787' : '#69DB7C',
+            confirmButtonText: 'OK',
+            backdrop: `rgba(0,0,0,0.1)`, // Very light backdrop
+            allowOutsideClick: false,
+            customClass: {
+                popup: 'rounded-[20px] shadow-lg border-2 border-slate-100', // Bubble shape
+                title: 'text-lg font-bold text-slate-700',
+                htmlContainer: 'text-sm text-slate-500',
+                confirmButton: 'rounded-full px-5 py-1 text-sm font-bold shadow-sm'
+            },
+            showClass: {
+                popup: 'animate__animated animate__zoomIn animate__faster'
+            },
+            hideClass: {
+                popup: 'animate__animated animate__zoomOut animate__faster'
+            },
+            didClose: () => {
+                if (focusId) {
+                    const element = document.getElementById(focusId);
+                    if (element) {
+                        element.focus();
+                    }
+                }
+            }
+        });
+    };
+
+    const handleClear = () => {
+        setFormData({
+            fullName: '',
+            dob: '',
+            phone: '',
+            email: '',
+            selectedClasses: [],
+            guardian: '',
+            guardianPhone: ''
+        });
+        setAvatar(null);
+        showCuteAlert('Cleared!', 'Form has been reset.', 'success');
     };
 
     const handleRegister = async () => {
-        // Validation Checks
-        if (!formData.fullName) {
-            alert("Error: Student Name is required!");
+        // --- Comprehensive & Strict Validation ---
+
+        // 1. Full Name
+        if (!formData.fullName.trim()) {
+            showCuteAlert('Oops!', 'Student Name is required!', 'error', 'fullName');
             return;
         }
-        if (!formData.classKey) {
-            alert("Error: Please assign a Class to the student.");
+
+        // 2. Date of Birth
+        if (!formData.dob) {
+            showCuteAlert('Hey!', 'Date of Birth is missing.', 'error', 'dob');
+            return;
+        }
+
+        // 3. Phone Number (Strict 10 digits, starting with 0)
+        // Regex: ^0\d{9}$ (Starts with 0, followed by exactly 9 digits)
+        const phoneRegex = /^0\d{9}$/;
+        if (!formData.phone || !phoneRegex.test(formData.phone)) {
+            showCuteAlert('Check Phone', 'Phone must be 10 digits starting with 0 (e.g. 0771234567).', 'error', 'phone');
+            return;
+        }
+
+        // 4. Email (Strict Format check if provided)
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (formData.email && !emailRegex.test(formData.email)) {
+            showCuteAlert('Email Error', 'That email looks invalid.', 'error', 'email');
+            return;
+        }
+
+        // 5. Guardian Name
+        if (!formData.guardian.trim()) {
+            showCuteAlert('Guardian?', 'Guardian Name is required.', 'error', 'guardian');
+            return;
+        }
+
+        // 6. Guardian Phone (Strict 10 digits, starting with 0)
+        if (!formData.guardianPhone || !phoneRegex.test(formData.guardianPhone)) {
+            showCuteAlert('Guardian Phone', 'Guardian Phone must be 10 digits starting with 0.', 'error', 'guardianPhone');
+            return;
+        }
+
+        // 7. Class Selection
+        if (formData.selectedClasses.length === 0) {
+            showCuteAlert('No Class?', 'Please select at least one class.', 'error');
             return;
         }
 
@@ -72,15 +165,11 @@ export function Registration() {
             // 1. Generate and commit the ID
             const finalId = commitNextStudentId();
 
-            // Find class name from selected key (which is the category name now)
-            // If we store name directly in value, we use it directly.
-            const selectedClass = formData.classKey;
-
             // 2. Save student
             await saveStudent({
                 regNum: finalId,
                 name: formData.fullName,
-                class: selectedClass,
+                class: formData.selectedClasses, // Pass array, backend handles JSON stringify
                 dob: formData.dob,
                 phone: formData.phone,
                 email: formData.email,
@@ -90,17 +179,46 @@ export function Registration() {
             });
 
             // 3. Navigate
-            alert(`Student Registered Successfully! ID: ${finalId}`);
+            // 3. Navigate
+            await Swal.fire({
+                icon: 'success',
+                title: 'Done!',
+                text: `ID: ${finalId}`,
+                width: 250,
+                padding: '1rem',
+                confirmButtonColor: '#69DB7C',
+                confirmButtonText: 'Cool',
+                customClass: {
+                    popup: 'rounded-[20px] shadow-lg border-2 border-slate-100',
+                    title: 'text-lg font-bold text-slate-700',
+                    htmlContainer: 'text-sm text-slate-500',
+                    confirmButton: 'rounded-full px-5 py-1 text-sm font-bold shadow-sm'
+                },
+                timer: 3000
+            });
             navigate(`/${userRole}/students`);
         } catch (error) {
             console.error("Registration failed:", error);
-            alert("Failed to save student. Please try again.");
+            showCuteAlert('Oh no!', 'Failed to save student. Try again.', 'error');
         }
     };
 
     return (
         <div className="max-w-4xl mx-auto">
-            {/* ... (header code unchanged) ... */}
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">New Student Registration</h1>
+                    <p className="text-slate-500">Enter student details to create a new record</p>
+                </div>
+                <button
+                    onClick={handleClear}
+                    className="flex items-center gap-2 px-4 py-2 text-slate-500 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 hover:text-primary hover:border-slate-300 transition-all font-medium"
+                    title="Clear Form"
+                >
+                    <RotateCcw className="h-4 w-4" />
+                    <span>Clear Form</span>
+                </button>
+            </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div className="p-8">
@@ -133,6 +251,7 @@ export function Registration() {
                                         placeholder="e.g. Kasun Perera"
                                         value={formData.fullName}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDown(e, 'dob')}
                                     />
                                 </div>
 
@@ -143,6 +262,7 @@ export function Registration() {
                                         type="date"
                                         value={formData.dob}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDown(e, 'phone')}
                                     />
                                 </div>
 
@@ -154,6 +274,7 @@ export function Registration() {
                                         placeholder="077xxxxxxx"
                                         value={formData.phone}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDown(e, 'email')}
                                     />
                                 </div>
 
@@ -165,30 +286,14 @@ export function Registration() {
                                         placeholder="student@example.com"
                                         value={formData.email}
                                         onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDown(e, 'guardian')}
                                     />
                                 </div>
                             </div>
 
                             <div className="border-t border-slate-100 pt-6">
-                                <h3 className="text-lg font-medium text-slate-800 mb-4">Academic & Guardian Details</h3>
+                                <h3 className="text-lg font-medium text-slate-800 mb-4">Guardian Information</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="classKey">Assigned Class</Label>
-                                        <select
-                                            id="classKey"
-                                            value={formData.classKey}
-                                            onChange={handleClassChange}
-                                            className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                                        >
-                                            <option value="">Select Class...</option>
-                                            {classCategories.map((cat) => (
-                                                <option key={cat.id} value={cat.name}>
-                                                    {cat.name} - LKR {cat.fee}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
                                     <div className="space-y-2">
                                         <Label htmlFor="guardian">Guardian Name</Label>
                                         <Input
@@ -196,6 +301,7 @@ export function Registration() {
                                             placeholder="Parent/Guardian Name"
                                             value={formData.guardian}
                                             onChange={handleChange}
+                                            onKeyDown={(e) => handleKeyDown(e, 'guardianPhone')}
                                         />
                                     </div>
 
@@ -207,7 +313,67 @@ export function Registration() {
                                             placeholder="077xxxxxxx"
                                             value={formData.guardianPhone}
                                             onChange={handleChange}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    handleRegister();
+                                                }
+                                            }}
                                         />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-slate-100 pt-6">
+                                <h3 className="text-lg font-medium text-slate-800 mb-4">Course Enrollment</h3>
+                                <div className="space-y-4">
+                                    <Label>Select Classes</Label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                        {classCategories.map((cat) => {
+                                            const isSelected = formData.selectedClasses.includes(cat.name);
+                                            return (
+                                                <div
+                                                    key={cat.id}
+                                                    onClick={() => {
+                                                        const cls = cat.name;
+                                                        setFormData(prev => {
+                                                            const current = prev.selectedClasses;
+                                                            if (current.includes(cls)) {
+                                                                return { ...prev, selectedClasses: current.filter(c => c !== cls) };
+                                                            } else {
+                                                                return { ...prev, selectedClasses: [...current, cls] };
+                                                            }
+                                                        });
+                                                    }}
+                                                    className={`relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between group h-full ${isSelected
+                                                        ? 'border-primary bg-primary/5 shadow-sm'
+                                                        : 'border-slate-200 hover:border-primary/50 hover:bg-slate-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div className="font-semibold text-slate-800 group-hover:text-primary transition-colors">{cat.name}</div>
+                                                        {isSelected && (
+                                                            <div className="bg-primary text-white rounded-full p-1 animate-scale-in">
+                                                                <Check className="h-3 w-3" />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-sm font-medium text-slate-500 mt-auto">LKR {cat.fee.toLocaleString()}/mo</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-lg flex justify-between items-center border border-slate-100 mt-4">
+                                        <div>
+                                            <p className="text-sm font-medium text-slate-600">Total Monthly Fee</p>
+                                            <p className="text-xs text-slate-400">Sum of selected class fees</p>
+                                        </div>
+                                        <span className="text-2xl font-bold text-primary">
+                                            LKR {classCategories
+                                                .filter(c => formData.selectedClasses.includes(c.name))
+                                                .reduce((sum, c) => sum + parseInt(String(c.fee)), 0)
+                                                .toLocaleString()}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -217,12 +383,7 @@ export function Registration() {
                 </div>
 
                 <div className="px-8 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-                    <button
-                        onClick={() => navigate('/students')}
-                        className="px-4 py-2 text-slate-600 font-medium hover:text-slate-800 transition-colors"
-                    >
-                        Cancel
-                    </button>
+
                     <button
                         onClick={handleRegister}
                         className="px-6 py-2 bg-primary text-white rounded-lg font-medium shadow-sm hover:bg-primary-dark transition-colors flex items-center gap-2"

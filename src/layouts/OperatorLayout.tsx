@@ -22,13 +22,13 @@ export function OperatorLayout() {
     const navItems = [
         { label: 'Registration', path: '/operator/register', icon: UserPlus },
         { label: 'Attendance', path: '/operator/attendance', icon: ClipboardList },
-        { label: 'Payments', path: '/operator/payments', icon: FileText },
+
         { label: 'Students', path: '/operator/students', icon: Users },
         { label: 'Messages', path: '/operator/messages', icon: MessageSquare },
     ];
 
     return (
-        <div className="min-h-screen bg-gray-100 flex">
+        <div className="h-screen overflow-hidden bg-gray-100 flex">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
@@ -59,8 +59,8 @@ export function OperatorLayout() {
                             to={item.path}
                             onClick={() => setIsSidebarOpen(false)}
                             className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${location.pathname === item.path
-                                    ? 'bg-blue-50 text-blue-700'
-                                    : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                                ? 'bg-blue-50 text-blue-700'
+                                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                                 }`}
                         >
                             <item.icon className="mr-3 h-5 w-5" />
