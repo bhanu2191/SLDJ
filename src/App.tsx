@@ -13,9 +13,10 @@ import UserManagement from './pages/admin/UserManagement';
 import SystemSettings from './pages/admin/SystemSettings';
 import AdminPayments from './pages/admin/Payments';
 import Payments from './pages/operator/Payments';
+import MessageCenter from './pages/admin/MessageCenter';
 
 // Placeholders for new pages to avoid build errors while we implement them
-const Messages = () => <div>Messages Content</div>;
+// const Messages = () => <div>Messages Content</div>;
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="users" element={<UserManagement />} />
             <Route path="students" element={<StudentList />} />
             <Route path="students/:id" element={<StudentProfile />} />
+            <Route path="messages" element={<MessageCenter />} />
             <Route path="settings" element={<SystemSettings />} />
           </Route>
 
@@ -42,7 +44,7 @@ function App() {
             <Route path="payments" element={<Payments />} />
             <Route path="students" element={<StudentList />} />
             <Route path="students/:id" element={<StudentProfile />} />
-            <Route path="messages" element={<Messages />} />
+            <Route path="messages" element={<MessageCenter />} />
           </Route>
 
           {/* Fallback */}

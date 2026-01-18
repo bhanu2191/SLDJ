@@ -1,4 +1,4 @@
-import { LayoutDashboard, UserPlus, Users, Settings, GraduationCap } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Users, Settings, GraduationCap, MessageSquare } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 
@@ -7,6 +7,7 @@ const navItems = [
     { icon: UserPlus, label: 'Registration', path: '/register' },
     { icon: Users, label: 'Students', path: '/students' },
     // { icon: CreditCard, label: 'Finance', path: '/finance' }, // Combined in Students for now as per view 3
+    { icon: MessageSquare, label: 'Messages', path: '/messages' },
     { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 

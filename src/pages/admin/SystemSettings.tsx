@@ -14,9 +14,30 @@ export const SystemSettings = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    // SMS Settings State
+    const [smsSettings, setSmsSettings] = useState({
+        provider: 'DefaultGateway',
+        apiKey: '',
+        senderId: 'SLDJ',
+        enabled: true
+    });
+    const [smsSaving, setSmsSaving] = useState(false);
+
     useEffect(() => {
         loadCategories();
+        loadSmsSettings(); // Load SMS settings on mount
     }, []);
+
+    const loadSmsSettings = async () => {
+        try {
+            const settings = await window.electronAPI.getSmsConfig();
+            if (settings) {
+                setSmsSettings(settings);
+            }
+        } catch (error) {
+            console.error("Failed to load SMS settings:", error);
+        }
+    };
 
     const loadCategories = async () => {
         try {
@@ -84,11 +105,19 @@ export const SystemSettings = () => {
         }
     };
 
-    const [smsSettings, _setSmsSettings] = useState({
-        provider: 'DefaultGateway',
-        apiKey: '********************',
-        senderId: 'SLDJ'
-    });
+    const handleSaveSmsSettings = async () => {
+        setSmsSaving(true);
+        try {
+            // @ts-ignore
+            await window.electronAPI.saveSmsConfig(smsSettings);
+            alert('SMS Configuration saved!');
+        } catch (error) {
+            console.error("Failed to save SMS settings:", error);
+            alert('Failed to save SMS configuration.');
+        } finally {
+            setSmsSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-8">
@@ -172,7 +201,8 @@ export const SystemSettings = () => {
                         <input
                             type="text"
                             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            defaultValue={smsSettings.provider}
+                            value={smsSettings.provider || ''}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, provider: e.target.value })}
                         />
                     </div>
                     <div>
@@ -180,7 +210,8 @@ export const SystemSettings = () => {
                         <input
                             type="text"
                             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            defaultValue={smsSettings.senderId}
+                            value={smsSettings.senderId || ''}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, senderId: e.target.value })}
                         />
                     </div>
                     <div className="md:col-span-2">
@@ -188,15 +219,31 @@ export const SystemSettings = () => {
                         <input
                             type="password"
                             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary font-mono"
-                            defaultValue={smsSettings.apiKey}
+                            value={smsSettings.apiKey || ''}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, apiKey: e.target.value })}
                         />
+                    </div>
+                    <div className="md:col-span-2 flex items-center gap-2">
+                        <input
+                            type="checkbox"
+                            id="smsEnabled"
+                            checked={!!smsSettings.enabled}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, enabled: e.target.checked })}
+                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                        />
+                        <label htmlFor="smsEnabled" className="text-sm font-medium text-gray-700">Enable SMS Features</label>
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                    <button className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors">
-                        <Save size={18} />
-                        Update Configuration
-                    </button>
+                    <div className="mt-6 flex justify-end">
+                        <button
+                            onClick={handleSaveSmsSettings}
+                            disabled={smsSaving}
+                            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
+                            <Save size={18} />
+                            {smsSaving ? 'Saving...' : 'Update Configuration'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

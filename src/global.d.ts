@@ -24,6 +24,12 @@ declare global {
             updateClassCategory: (category: any) => Promise<any>;
             deleteClassCategory: (id: string | number) => Promise<string | number>;
             sendReceiptEmail: (data: { email: string; studentName: string; amount: number; date: string; receiptNo: string; course: string }) => Promise<any>;
+
+            // SMS API
+            getSmsConfig: () => Promise<any>;
+            saveSmsConfig: (config: any) => Promise<any>;
+            sendManualSms: (data: { recipients: string[], message: string }) => Promise<{ successCount: number, failCount: number }>;
+            getSmsLogs: () => Promise<any[]>;
         };
     }
 }

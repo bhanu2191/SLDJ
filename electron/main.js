@@ -19,6 +19,8 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 import Database from 'better-sqlite3';
 import nodemailer from 'nodemailer';
+import cron from 'node-cron'; // Import node-cron
+import smsService from './smsService.js'; // Import SMS Service
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -119,6 +121,35 @@ function initDB() {
             name TEXT NOT NULL,
             fee REAL NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // SMS Settings Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS sms_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider TEXT DEFAULT 'mock',
+            apiKey TEXT,
+            senderId TEXT,
+            enabled INTEGER DEFAULT 1,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Initialize default SMS settings if empty
+    const settingsCount = db.prepare('SELECT COUNT(*) as count FROM sms_settings').get().count;
+    if (settingsCount === 0) {
+        db.prepare("INSERT INTO sms_settings (provider, apiKey, senderId) VALUES ('DefaultGateway', '', 'SLDJ')").run();
+    }
+
+    // SMS Logs Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS sms_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            recipient TEXT NOT NULL,
+            message TEXT NOT NULL,
+            status TEXT,
+            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 }
@@ -278,6 +309,27 @@ app.whenReady().then(() => {
             VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar)
         `);
             stmt.run(studentToSave);
+
+            // --- SMS TRIGGER: Registration Welcome ---
+            try {
+                const settings = db.prepare('SELECT * FROM sms_settings').get();
+                if (settings && settings.enabled) {
+                    const message = "Thank you for register in SL Dream Japan wish to the student for future professional way";
+                    if (studentToSave.phone) {
+                        smsService.sendSMS(studentToSave.phone, message, settings)
+                            .then(res => {
+                                console.log("Registration SMS result:", res);
+                                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                                    studentToSave.phone, message, res.success ? 'sent' : 'failed'
+                                );
+                            })
+                            .catch(err => console.error("SMS Send Error:", err));
+                    }
+                }
+            } catch (smsErr) {
+                console.error("Failed to trigger registration SMS:", smsErr);
+            }
+
             return studentToSave;
         } catch (err) {
             console.error("Failed to add student:", err);
@@ -306,6 +358,10 @@ app.whenReady().then(() => {
           WHERE regNum = @regNum
       `);
         stmt.run(studentToSave);
+        stmt.run(studentToSave);
+
+
+
         return studentToSave;
     });
 
@@ -657,6 +713,108 @@ app.whenReady().then(() => {
         } catch (error) {
             console.error("Failed to send email:", error);
             throw error;
+        }
+    });
+
+
+    // --- IPC Handlers for SMS ---
+    ipcMain.handle('get-sms-config', () => {
+        return db.prepare('SELECT * FROM sms_settings').get();
+    });
+
+    ipcMain.handle('save-sms-config', (event, config) => {
+        const stmt = db.prepare(`
+            UPDATE sms_settings 
+            SET provider = @provider, apiKey = @apiKey, senderId = @senderId, enabled = @enabled, updated_at = CURRENT_TIMESTAMP
+            WHERE id = (SELECT id FROM sms_settings LIMIT 1)
+        `);
+        stmt.run(config);
+        return config;
+    });
+
+    ipcMain.handle('send-manual-sms', async (event, { recipients, message }) => {
+        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        if (!settings || !settings.enabled) {
+            throw new Error("SMS service is disabled in settings.");
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const phone of recipients) {
+            try {
+                const res = await smsService.sendSMS(phone, message, settings);
+                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                    phone, message, res.success ? 'sent' : 'failed'
+                );
+                if (res.success) successCount++; else failCount++;
+            } catch (e) {
+                console.error(`Failed to send to ${phone}`, e);
+                failCount++;
+                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                    phone, message, 'error'
+                );
+            }
+        }
+        return { successCount, failCount };
+    });
+
+    ipcMain.handle('get-sms-logs', () => {
+        // Return last 5 logs desc
+        return db.prepare('SELECT * FROM sms_logs ORDER BY sent_at DESC LIMIT 5').all();
+    });
+
+    // --- AUTOMATED SCHEDULER ---
+    // Run daily at 9:00 AM
+    cron.schedule('0 9 * * *', async () => {
+        console.log("[SCHEDULER] Running daily check...");
+        const now = new Date();
+        const day = now.getDate();
+
+        // Reminder logic: "before 10th of the months"
+        // Let's send on the 7th as a reminder.
+        if (day === 7) {
+            console.log("[SCHEDULER] It's the 7th! Checking for pending payments...");
+            const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            // 1. Get settings
+            const settings = db.prepare('SELECT * FROM sms_settings').get();
+            if (!settings || !settings.enabled) return;
+
+            // 2. Find students who haven't paid logic (simplified version of pending calculation)
+            const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+            const paidMap = {};
+            payments.forEach(p => {
+                if (!paidMap[p.regNum]) paidMap[p.regNum] = new Set();
+                if (p.class) paidMap[p.regNum].add(p.class);
+            });
+
+            const students = db.prepare('SELECT regNum, phone, name, class FROM students').all();
+
+            for (const s of students) {
+                if (!s.phone) continue;
+
+                let classes = [];
+                try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
+                if (!Array.isArray(classes)) classes = [s.class];
+
+                // Check if ANY class is unpaid
+                const hasUnpaid = classes.some(cls => !paidMap[s.regNum]?.has(cls));
+
+                if (hasUnpaid) {
+                    const msg = `Dear ${s.name}, please remember to pay your class fees for ${currentMonth} before the 10th. Thank you! - SLDJ`;
+
+                    // Check if we already sent a reminder to this person TODAY or THIS MONTH?
+                    const alreadySent = db.prepare("SELECT count(*) as c FROM sms_logs WHERE recipient = ? AND message LIKE 'Dear %, please remember to pay%' AND sent_at > date('now', 'start of month')").get(s.phone).c;
+
+                    if (alreadySent === 0) {
+                        smsService.sendSMS(s.phone, msg, settings);
+                        db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                            s.phone, msg, 'automated_reminder'
+                        );
+                    }
+                }
+            }
         }
     });
 

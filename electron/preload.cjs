@@ -35,4 +35,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAllPayments: () => ipcRenderer.invoke('get-all-payments'),
     getRevenueByClass: () => ipcRenderer.invoke('get-revenue-by-class'),
     getMonthlyRevenueTrend: () => ipcRenderer.invoke('get-monthly-revenue-trend'),
+    getMonthlyRevenueTrend: () => ipcRenderer.invoke('get-monthly-revenue-trend'),
+
+    // SMS API
+    getSmsConfig: () => ipcRenderer.invoke('get-sms-config'),
+    saveSmsConfig: (config) => ipcRenderer.invoke('save-sms-config', config),
+    sendManualSms: (data) => ipcRenderer.invoke('send-manual-sms', data),
+    getSmsLogs: () => ipcRenderer.invoke('get-sms-logs'),
 });
