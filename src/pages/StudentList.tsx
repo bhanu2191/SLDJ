@@ -14,9 +14,7 @@ export function StudentList() {
                         <p className="text-slate-500">View and manage all active students</p>
                     </div>
                 </div>
-                <button className="px-4 py-2 bg-primary text-white rounded-lg font-medium shadow-md hover:bg-primary-dark transition-colors">
-                    Download Report
-                </button>
+
             </div>
 
             <StudentTable />

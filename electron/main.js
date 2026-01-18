@@ -139,6 +139,9 @@ const createWindow = () => {
         },
     });
 
+    // Remove the menu bar completely
+    mainWindow.setMenu(null);
+
     // In development, load from the Vite dev server
     if (!app.isPackaged) {
         mainWindow.loadURL('http://localhost:5173');
