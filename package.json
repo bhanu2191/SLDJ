@@ -10,7 +10,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "rebuild": "electron-rebuild"
+    "rebuild": "electron-rebuild",
+    "import-db": "electron electron/import_db.js"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.0",
