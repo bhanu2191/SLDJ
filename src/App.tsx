@@ -11,7 +11,7 @@ import { StudentList } from './pages/StudentList';
 import { StudentProfile } from './pages/StudentProfile';
 import UserManagement from './pages/admin/UserManagement';
 import SystemSettings from './pages/admin/SystemSettings';
-import Attendance from './pages/operator/Attendance';
+
 import Payments from './pages/operator/Payments';
 
 // Placeholders for new pages to avoid build errors while we implement them
@@ -37,7 +37,7 @@ function App() {
           <Route path="/operator" element={<OperatorLayout />}>
             <Route index element={<Navigate to="/operator/register" replace />} />
             <Route path="register" element={<Registration />} />
-            <Route path="attendance" element={<Attendance />} />
+
             <Route path="payments" element={<Payments />} />
             <Route path="students" element={<StudentList />} />
             <Route path="students/:id" element={<StudentProfile />} />

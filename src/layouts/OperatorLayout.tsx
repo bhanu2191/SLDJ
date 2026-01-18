@@ -1,6 +1,6 @@
 import { Outlet, Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ClipboardList, Users, UserPlus, FileText, MessageSquare, LogOut, Menu, X } from 'lucide-react';
+import { Users, UserPlus, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 export function OperatorLayout() {
@@ -21,7 +21,7 @@ export function OperatorLayout() {
 
     const navItems = [
         { label: 'Registration', path: '/operator/register', icon: UserPlus },
-        { label: 'Attendance', path: '/operator/attendance', icon: ClipboardList },
+
 
         { label: 'Students', path: '/operator/students', icon: Users },
         { label: 'Messages', path: '/operator/messages', icon: MessageSquare },
