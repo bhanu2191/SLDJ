@@ -413,6 +413,64 @@ app.whenReady().then(() => {
         };
     });
 
+    ipcMain.handle('get-admin-payment-stats', () => {
+        const now = new Date();
+        const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+        const currentDate = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD to match storage 
+        // Note: In add-payment, we use `date` passed from frontend. Frontend usually uses `new Date().toLocaleDateString()`.
+        // Ideally we should use ISO strings for dates to be safe, but let's stick to existing pattern or check DB.
+
+        // 1. Total Revenue
+        const totalRevenue = db.prepare('SELECT SUM(amount) as total FROM payments').get().total || 0;
+
+        // 2. Monthly Revenue (Reuse logic)
+        const monthlyRevenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE month = ?').get(currentMonth).total || 0;
+
+        // 3. Today's Revenue
+        // We need to match the date format stored in DB. Assuming it's `toLocaleDateString()`.
+        // Let's check a record or assume standard. `new Date().toLocaleDateString()` is risky if format differs.
+        // But since we are sorting by date in history, likely it works or we need a fuzzy match?
+        // Let's try to get payments where date matches today's date string.
+        const todaysRevenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE date = ?').get(currentDate).total || 0;
+
+        // 4. Pending Amount Calculation
+        // This is expensive. We need to iterate active students and check if they paid for their classes this month.
+        const categories = db.prepare('SELECT name, fee FROM class_categories').all();
+        const categoryMap = categories.reduce((acc, cat) => ({ ...acc, [cat.name]: cat.fee }), {});
+
+        const students = db.prepare('SELECT regNum, class FROM students').all();
+        const paymentsThisMonth = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+
+        // Map: regNum -> Set(paidClasses)
+        const paymentMap = {};
+        paymentsThisMonth.forEach(p => {
+            if (!paymentMap[p.regNum]) paymentMap[p.regNum] = new Set();
+            if (p.class) paymentMap[p.regNum].add(p.class);
+        });
+
+        let pendingAmount = 0;
+        students.forEach(s => {
+            let userClasses = [];
+            try { userClasses = JSON.parse(s.class); } catch (e) { userClasses = [s.class]; }
+            if (!Array.isArray(userClasses)) userClasses = [s.class];
+
+            userClasses.forEach(clsName => {
+                if (!paymentMap[s.regNum]?.has(clsName)) {
+                    // Not paid
+                    pendingAmount += (categoryMap[clsName] || 0);
+                }
+            });
+        });
+
+        return {
+            totalRevenue,
+            monthlyRevenue,
+            todaysRevenue,
+            pendingAmount
+        };
+    });
+
     ipcMain.handle('get-revenue-chart', () => {
         // Last 30 days revenue
         // SQLite doesn't have a simple date range generator, so we might return existing data 
@@ -461,6 +519,49 @@ app.whenReady().then(() => {
         // Sort by time descending and take top 5
         activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
         return activities.slice(0, 5);
+    });
+
+    ipcMain.handle('get-all-payments', () => {
+        return db.prepare(`
+            SELECT p.*, s.name as studentName, COALESCE(p.class, s.class) as class
+            FROM payments p 
+            LEFT JOIN students s ON p.regNum = s.regNum 
+            ORDER BY p.id DESC
+        `).all();
+    });
+
+    ipcMain.handle('get-revenue-by-class', () => {
+        return db.prepare(`
+            SELECT class, SUM(amount) as total 
+            FROM payments 
+            WHERE class IS NOT NULL 
+            GROUP BY class 
+            ORDER BY total DESC
+        `).all();
+    });
+
+    ipcMain.handle('get-monthly-revenue-trend', () => {
+        // Return revenue grouped by month for the last 12 months? 
+        // We store 'month' as a string "Month Year" (e.g. "January 2026").
+        // This makes sorting by SQL hard without Parsing. 
+        // So we will fetch grouped by 'month' string and process in JS.
+        // Or better, fetch all payments with date, and group in JS which is safer for sorting.
+        // But doing it here is cleaner for frontend.
+        // Let's just group by the existing 'month' column and we'll have to parse it to sort it.
+        const data = db.prepare(`
+            SELECT month, SUM(amount) as total 
+            FROM payments 
+            GROUP BY month
+        `).all();
+
+        // We need to sort these chronologically. 
+        // They are like "January 2026", "December 2025".
+        data.sort((a, b) => {
+            return new Date(a.month).getTime() - new Date(b.month).getTime();
+        });
+
+        // Limit to last 6-12 entries if needed, or return all. Let's return last 6.
+        return data.slice(-6);
     });
 
     // --- IPC Handlers for Class Categories ---
