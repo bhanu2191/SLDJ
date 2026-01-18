@@ -798,28 +798,29 @@ app.whenReady().then(() => {
                 try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
                 if (!Array.isArray(classes)) classes = [s.class];
 
-                // Check if ANY class is unpaid
-                const hasUnpaid = classes.some(cls => !paidMap[s.regNum]?.has(cls));
+                // Check pending
+                const pendingClasses = classes.filter(cls => !paidMap[s.regNum]?.has(cls));
 
-                if (hasUnpaid) {
-                    const msg = `Dear ${s.name}, please remember to pay your class fees for ${currentMonth} before the 10th. Thank you! - SLDJ`;
+                if (pendingClasses.length > 0) {
+                    // Send reminder
+                    const message = `Reminder: Payment pending for ${pendingClasses.join(', ')} for ${currentMonth}. Please pay before the 10th. - SLDJ`;
 
-                    // Check if we already sent a reminder to this person TODAY or THIS MONTH?
-                    const alreadySent = db.prepare("SELECT count(*) as c FROM sms_logs WHERE recipient = ? AND message LIKE 'Dear %, please remember to pay%' AND sent_at > date('now', 'start of month')").get(s.phone).c;
-
-                    if (alreadySent === 0) {
-                        smsService.sendSMS(s.phone, msg, settings);
-                        db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                            s.phone, msg, 'automated_reminder'
-                        );
+                    try {
+                        const res = await smsService.sendSMS(s.phone, message, settings);
+                        // Log (optional for scheduler?)
+                        console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success}`);
+                    } catch (e) {
+                        console.error(`Failed to send reminder to ${s.phone}`, e);
                     }
                 }
             }
         }
     });
-
 });
 
+console.log("App ready.");
+
+// Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
