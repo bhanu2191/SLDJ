@@ -9,20 +9,20 @@
 
 A comprehensive Student Management and Payment System built with Electron, React, and SQLite. This application is designed to streamline the administrative and operational tasks for SL Dream Japan Institute, offering robust features for student registration, fee management, and automated communications.
 
-## 🚀 Features
+## Features
 
-### 🎓 Student Management
+### Student Management
 - **Registration**: Register new students with detailed profiles including personal information, guardian details, and multiple class assignments.
 - **Profile Management**: View and edit student details, track payment history, and manage class enrollments.
 - **Search & Filter**: Efficiently search for students by registration number or name.
 
-### 💰 Financial Management
+### Financial Management
 - **Payment Processing**: Record monthly class fees with support for various payment methods.
 - **Receipts**: Automatically generate and email digital receipts to students upon payment.
 - **Revenue Tracking**: Real-time dashboard usage for monitoring daily and monthly revenue.
 - **Pending Payments**: Automated tracking of overdue and pending payments.
 
-### 👥 Role-Based Access Control
+### Role-Based Access Control
 - **Admin Portal**: 
     - Full system access.
     - Dashboard with financial and operational analytics.
@@ -32,7 +32,7 @@ A comprehensive Student Management and Payment System built with Electron, React
     - Focused interface for daily operations.
     - streamlined student registration and payment collection.
 
-### 📡 Automated Communications
+### Automated Communications
 - **SMS Integration**: Automated SMS notifications for new registrations and payment reminders (configurable).
 - **Email Services**: Integrated email service for sending official payment receipts.
 
@@ -41,7 +41,7 @@ A comprehensive Student Management and Payment System built with Electron, React
 - **Automated Scheduler**: Background jobs for checking payment statuses and sending reminders.
 - **Offline Capable**: Fully functional desktop application.
 
-## 💻 Tech Stack
+## Tech Stack
 
 - **Runtime**: [Electron](https://www.electronjs.org/)
 - **Frontend**: [React](https://react.dev/), [Vite](https://vitejs.dev/)
@@ -51,7 +51,7 @@ A comprehensive Student Management and Payment System built with Electron, React
 - **Charting**: [Recharts](https://recharts.org/)
 - **Communication**: `nodemailer` (Email), Custom SMS Service Integration
 
-## 🛠️ Installation & Setup
+## Installation & Setup
 
 1. **Prerequisites**
    - Node.js (v18 or higher recommended)
@@ -79,7 +79,7 @@ A comprehensive Student Management and Payment System built with Electron, React
    npm run build
    ```
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 SLDJ/
@@ -93,16 +93,13 @@ SLDJ/
 └── dist/           # Production build output
 ```
 
-## 🔐 Configuration
+## Configuration
 
 ### SMS & Email
 - **SMS Settings**: Configurable via the Admin Portal under "System Settings".
 - **Email**: Currently configured for Gmail SMTP. Update credentials in `electron/main.js` or move to environment variables for production.
 
-## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
+## License
 
 This project is proprietary software developed for SL Dream Japan.
