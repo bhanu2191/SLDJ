@@ -1,73 +1,101 @@
-# React + TypeScript + Vite
+# SL Dream Japan (SLDJ) Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A comprehensive Student Management and Payment System built with Electron, React, and SQLite. This application is designed to streamline the administrative and operational tasks for SL Dream Japan Institute, offering robust features for student registration, fee management, and automated communications.
 
-Currently, two official plugins are available:
+## 🚀 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 🎓 Student Management
+- **Registration**: Register new students with detailed profiles including personal information, guardian details, and multiple class assignments.
+- **Profile Management**: View and edit student details, track payment history, and manage class enrollments.
+- **Search & Filter**: Efficiently search for students by registration number or name.
 
-## React Compiler
+### 💰 Financial Management
+- **Payment Processing**: Record monthly class fees with support for various payment methods.
+- **Receipts**: Automatically generate and email digital receipts to students upon payment.
+- **Revenue Tracking**: Real-time dashboard usage for monitoring daily and monthly revenue.
+- **Pending Payments**: Automated tracking of overdue and pending payments.
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+### 👥 Role-Based Access Control
+- **Admin Portal**: 
+    - Full system access.
+    - Dashboard with financial and operational analytics.
+    - User management (create/suspend operators).
+    - System configuration (class fees, SMS settings).
+- **Operator Portal**: 
+    - Focused interface for daily operations.
+    - streamlined student registration and payment collection.
 
-## Expanding the ESLint configuration
+### 📡 Automated Communications
+- **SMS Integration**: Automated SMS notifications for new registrations and payment reminders (configurable).
+- **Email Services**: Integrated email service for sending official payment receipts.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🛠 System Features
+- **Data Persistence**: Robust local data storage using SQLite.
+- **Automated Scheduler**: Background jobs for checking payment statuses and sending reminders.
+- **Offline Capable**: Fully functional desktop application.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## 💻 Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Runtime**: [Electron](https://www.electronjs.org/)
+- **Frontend**: [React](https://react.dev/), [Vite](https://vitejs.dev/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Database**: [SQLite](https://www.sqlite.org/) (via `better-sqlite3`)
+- **Styling**: [TailwindCSS](https://tailwindcss.com/)
+- **Charting**: [Recharts](https://recharts.org/)
+- **Communication**: `nodemailer` (Email), Custom SMS Service Integration
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 🛠️ Installation & Setup
+
+1. **Prerequisites**
+   - Node.js (v18 or higher recommended)
+   - npm (Node Package Manager)
+
+2. **Clone the Repository**
+   ```bash
+   git clone <repository-url>
+   cd SLDJ
+   ```
+
+3. **Install Dependencies**
+   ```bash
+   npm install
+   ```
+   *Note: If you encounter errors related to native modules, ensure you have build tools installed or run `npm run rebuild`.*
+
+4. **Run in Development Mode**
+   ```bash
+   npm run electron:dev
+   ```
+
+5. **Build for Production**
+   ```bash
+   npm run build
+   ```
+
+## 📂 Project Structure
+
+```
+SLDJ/
+├── electron/        # Main process & backend logic (IPC handlers, Database)
+├── src/            # Renderer process (React Frontend)
+│   ├── components/ # Reusable UI components
+│   ├── pages/      # Application route pages
+│   ├── layouts/    # Admin & Operator layout wrappers
+│   └── context/    # Global state (Auth, etc.)
+├── data/           # SQLite database location (generated at runtime)
+└── dist/           # Production build output
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🔐 Configuration
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### SMS & Email
+- **SMS Settings**: Configurable via the Admin Portal under "System Settings".
+- **Email**: Currently configured for Gmail SMTP. Update credentials in `electron/main.js` or move to environment variables for production.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is proprietary software developed for SL Dream Japan.
