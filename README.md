@@ -1,5 +1,12 @@
 # SL Dream Japan (SLDJ) Management System
 
+[![Electron](https://img.shields.io/badge/Electron-Latest-blue?style=flat-square&logo=electron)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19.0-blue?style=flat-square&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-Latest-646CFF?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4-38B2AC?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-Latest-003B57?style=flat-square&logo=sqlite)](https://www.sqlite.org/)
+
 A comprehensive Student Management and Payment System built with Electron, React, and SQLite. This application is designed to streamline the administrative and operational tasks for SL Dream Japan Institute, offering robust features for student registration, fee management, and automated communications.
 
 ## 🚀 Features
