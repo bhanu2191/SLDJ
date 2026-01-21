@@ -815,7 +815,7 @@ app.whenReady().then(() => {
 
                 if (pendingClasses.length > 0) {
                     // Send reminder
-                    const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.`;
+                    const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න./n— SL Dream Japan`;
 
                     try {
                         const res = await smsService.sendSMS(s.phone, message, settings);
