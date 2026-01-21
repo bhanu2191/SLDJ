@@ -22,6 +22,7 @@ export const SystemSettings = () => {
         enabled: true
     });
     const [smsSaving, setSmsSaving] = useState(false);
+    const [smsBalance, setSmsBalance] = useState<string | number | null>(null);
 
     useEffect(() => {
         loadCategories();
@@ -33,9 +34,26 @@ export const SystemSettings = () => {
             const settings = await window.electronAPI.getSmsConfig();
             if (settings) {
                 setSmsSettings(settings);
+                // Also load balance
+                loadBalance();
             }
         } catch (error) {
             console.error("Failed to load SMS settings:", error);
+        }
+    };
+
+    const loadBalance = async () => {
+        try {
+            // @ts-ignore
+            const result = await window.electronAPI.getSmsBalance();
+            if (result.success) {
+                setSmsBalance(result.balance);
+            } else {
+                setSmsBalance(result.error || "Unavailable");
+            }
+        } catch (error) {
+            console.error("Failed to load balance:", error);
+            setSmsBalance("Error");
         }
     };
 
@@ -194,7 +212,14 @@ export const SystemSettings = () => {
 
             {/* SMS Gateway Settings */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-800 mb-6">SMS Gateway Configuration</h2>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-lg font-semibold text-gray-800">SMS Gateway Configuration</h2>
+                    {smsBalance !== null && (
+                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                            Balance: {smsBalance} SMS
+                        </span>
+                    )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Provider Name</label>
@@ -203,7 +228,9 @@ export const SystemSettings = () => {
                             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
                             value={smsSettings.provider || ''}
                             onChange={(e) => setSmsSettings({ ...smsSettings, provider: e.target.value })}
+                            placeholder="e.g. text.lk"
                         />
+                        <p className="text-xs text-gray-500 mt-1">Set to <b>text.lk</b> for Sinhala/Unicode support.</p>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Sender ID</label>

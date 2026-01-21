@@ -314,7 +314,7 @@ app.whenReady().then(() => {
             try {
                 const settings = db.prepare('SELECT * FROM sms_settings').get();
                 if (settings && settings.enabled) {
-                    const message = "Thank you for register in SL Dream Japan wish to the student for future professional way";
+                    const message = `SL Dream Japan වෙත ලියාපදිංචි වූ ඔබට ස්තුතියි. ඔබගේ අධ්‍යාපනික හා වෘත්තීය අනාගතයට සාර්ථකත්වය ප්‍රාර්ථනා කරමු.`;
                     if (studentToSave.phone) {
                         smsService.sendSMS(studentToSave.phone, message, settings)
                             .then(res => {
@@ -732,6 +732,18 @@ app.whenReady().then(() => {
         return config;
     });
 
+    ipcMain.handle('get-sms-balance', async () => {
+        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        if (!settings) return { success: false, error: "No settings found" };
+
+        // If mocked or invalid key, return placeholder
+        if (!settings.apiKey || settings.provider !== 'text.lk') {
+            return { success: false, error: "Configure text.lk to see balance" };
+        }
+
+        return await smsService.getBalance(settings);
+    });
+
     ipcMain.handle('send-manual-sms', async (event, { recipients, message }) => {
         const settings = db.prepare('SELECT * FROM sms_settings').get();
         if (!settings || !settings.enabled) {
@@ -803,7 +815,7 @@ app.whenReady().then(() => {
 
                 if (pendingClasses.length > 0) {
                     // Send reminder
-                    const message = `Reminder: Payment pending for ${pendingClasses.join(', ')} for ${currentMonth}. Please pay before the 10th. - SLDJ`;
+                    const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.`;
 
                     try {
                         const res = await smsService.sendSMS(s.phone, message, settings);
