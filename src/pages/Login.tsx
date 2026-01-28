@@ -35,8 +35,8 @@ export function Login() {
 
                 <div className="relative z-20 flex flex-col justify-between p-12 h-full w-full">
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-white rounded-xl shadow-lg">
-                            <img src={logo} alt="SLDJ Logo" className="h-12 w-auto" />
+                        <div className="p-1 bg-white rounded-xl shadow-lg inline-block">
+                            <img src={logo} alt="SLDJ Logo" className="h-20 w-auto" />
                         </div>
                         <span className="text-3xl font-bold tracking-tight">SL Dream Japan</span>
                     </div>
@@ -63,7 +63,7 @@ export function Login() {
             <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 xl:px-24 bg-gray-50 lg:bg-white">
                 <div className="mx-auto w-full max-w-sm lg:max-w-md">
                     <div className="flex justify-center mb-8 lg:hidden">
-                        <img src={logo} alt="SLDJ Logo" className="h-20 w-auto" />
+                        <img src={logo} alt="SLDJ Logo" className="h-28 w-auto" />
                     </div>
 
                     <div className="text-center lg:text-left">
@@ -139,8 +139,8 @@ export function Login() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className={`appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-200 ${selectedRole === 'admin'
-                                                ? 'focus:ring-accent'
-                                                : 'focus:ring-primary'
+                                            ? 'focus:ring-accent'
+                                            : 'focus:ring-primary'
                                             }`}
                                         placeholder="Enter your password"
                                     />
