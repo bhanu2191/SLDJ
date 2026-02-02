@@ -215,8 +215,11 @@ export const SystemSettings = () => {
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-lg font-semibold text-gray-800">SMS Gateway Configuration</h2>
                     {smsBalance !== null && (
-                        <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
-                            Balance: {smsBalance} SMS
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${String(smsBalance).toLowerCase().includes('error') || String(smsBalance).toLowerCase().includes('fail')
+                                ? 'text-red-600 bg-red-50 border-red-100'
+                                : 'text-green-600 bg-green-50 border-green-100'
+                            }`}>
+                            {String(smsBalance).toLowerCase().includes('error') ? smsBalance : `Balance: ${smsBalance} SMS`}
                         </span>
                     )}
                 </div>

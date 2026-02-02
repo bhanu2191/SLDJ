@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Payment API
     addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
     getStudentPayments: (regNum) => ipcRenderer.invoke('get-student-payments', regNum),
+
+    // SMS API
+    getSmsConfig: () => ipcRenderer.invoke('get-sms-config'),
+    saveSmsConfig: (config) => ipcRenderer.invoke('save-sms-config', config),
+    getSmsBalance: () => ipcRenderer.invoke('get-sms-balance'),
 });

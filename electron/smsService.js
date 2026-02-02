@@ -82,8 +82,8 @@ async function sendSMS(to, message, config = {}) {
 
 // Get current balance
 async function getBalance(config = {}) {
-    if (!config.apiKey || config.apiKey === '3024|snp6GrpsKdNpsggKgtf1GKkkpKRKOgZr9mbEHIK4595600a6') {
-        return { success: false, error: "Invalid API Key" };
+    if (!config.apiKey) {
+        return { success: false, error: "API Key not configured" };
     }
 
     try {
@@ -97,10 +97,49 @@ async function getBalance(config = {}) {
         });
 
         const data = await response.json();
-        // Expected response: { status: "success", balance: 1250, ... }
+        /*
+           Success Response:
+           {
+             "status": "success",
+             "data": "1250 sms unit with all details" // It seems to be a string based on user screenshot?
+             // Or sometimes { "status": "success", "data": { "balance": 1250, ... } }
+             // User screenshot says: "Returns: Returns a contact object..." but example shows nested data.
+             // Actually, the user screenshot shows "data": "sms unit with all details" which is vague.
+             // But usually text.lk returns: { status: "success", data: { balance: 100 } } OR just data string?
+             // Let's assume standard "data.balance" or safe access.
+             // Wait, user provided Screenshot 2 showing "Returns a contact object..." which is wrong for balance endpoint.
+             // But the example response shows: { "status": "success", "data": "sms unit with all details" }.
+             // This implies 'data' might be the balance string itself? Or an object.
+             // Let's make it robust.
+        */
 
-        if (data.status === 'success' || data.balance !== undefined) {
-            return { success: true, balance: data.balance || data.data?.balance || "Unknown" };
+        console.log("[SMS SERVICE] Balance Response:", data);
+
+        if (data.status === 'success') {
+            let balance = "Unknown";
+
+            // Check for direct value (string or number) in data.data
+            if (data.data !== undefined && (typeof data.data === 'string' || typeof data.data === 'number')) {
+                balance = data.data;
+            }
+            // Check for nested object with 'remaining_balance' (Common Text.lk V3 format)
+            else if (typeof data.data === 'object' && data.data && data.data.remaining_balance !== undefined) {
+                balance = data.data.remaining_balance;
+            }
+            // Check for nested object with 'balance' (Alternative format)
+            else if (typeof data.data === 'object' && data.data && data.data.balance !== undefined) {
+                balance = data.data.balance;
+            }
+            // Check for direct balance property
+            else if (data.balance !== undefined) {
+                balance = data.balance;
+            }
+            // Fallback: Show structure for debugging if still unknown
+            else {
+                balance = `Debug: ${JSON.stringify(data).substring(0, 20)}...`;
+            }
+
+            return { success: true, balance: balance };
         } else {
             return { success: false, error: data.message || "Failed to fetch balance" };
         }

@@ -740,6 +740,8 @@ app.whenReady().then(() => {
         return config;
     });
 
+
+
     // --- IPC Handlers for 2FA OTP ---
     ipcMain.handle('send-2fa-otp', async (event, { phone }) => {
         // 1. Get Settings
