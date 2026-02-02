@@ -165,20 +165,24 @@ export function StudentTable() {
                                     <td className="px-6 py-4 text-slate-600">
                                         <div className="flex flex-wrap gap-2">
                                             {student.classStatuses ? (
-                                                student.classStatuses.map((cs, idx) => (
-                                                    <span key={idx} className={cn(
-                                                        "px-2 py-1 rounded text-xs font-medium border",
-                                                        cs.status === 'paid' ? "bg-green-50 text-green-700 border-green-200" :
-                                                            cs.status === 'overdue' ? "bg-red-50 text-red-700 border-red-200" :
-                                                                "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                                    )}>
-                                                        {cs.className}
-                                                        {cs.status !== 'pending' && <span className="ml-1 opacity-75">({cs.status})</span>}
-                                                    </span>
-                                                ))
+                                                student.classStatuses
+                                                    .filter(cs => classFilter === 'all' || cs.className === classFilter)
+                                                    .map((cs, idx) => (
+                                                        <span key={idx} className={cn(
+                                                            "px-2 py-1 rounded text-xs font-medium border",
+                                                            cs.status === 'paid' ? "bg-green-50 text-green-700 border-green-200" :
+                                                                cs.status === 'overdue' ? "bg-red-50 text-red-700 border-red-200" :
+                                                                    "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                                        )}>
+                                                            {cs.className}
+                                                            {cs.status !== 'pending' && <span className="ml-1 opacity-75">({cs.status})</span>}
+                                                        </span>
+                                                    ))
                                             ) : (
                                                 <span className="px-2 py-1 rounded bg-slate-100 text-xs font-medium">
-                                                    {Array.isArray(student.class) ? student.class.join(', ') : student.class}
+                                                    {Array.isArray(student.class)
+                                                        ? (classFilter !== 'all' ? student.class.filter(c => c === classFilter).join(', ') : student.class.join(', '))
+                                                        : student.class}
                                                 </span>
                                             )}
                                         </div>
