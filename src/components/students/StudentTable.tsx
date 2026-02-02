@@ -24,6 +24,7 @@ export function StudentTable() {
     const navigate = useNavigate();
     const { userRole } = useAuth();
     const [filter, setFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
+    const [classFilter, setClassFilter] = useState<string>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [students, setStudents] = useState<Student[]>(mockStudents);
     const currentDate = new Date();
@@ -37,17 +38,32 @@ export function StudentTable() {
         loadStudents();
     }, []);
 
+    // Extract unique classes
+    const uniqueClasses = Array.from(new Set(students.flatMap(s => {
+        if (s.classStatuses && s.classStatuses.length > 0) {
+            return s.classStatuses.map(cs => cs.className);
+        }
+        if (Array.isArray(s.class)) return s.class;
+        return [s.class];
+    }))).sort();
+
     const filteredStudents = students.filter(student => {
         const matchesFilter =
             filter === 'all' ? true :
                 filter === 'paid' ? student.status === 'paid' :
                     (student.status === 'overdue' || student.status === 'pending');
 
+        const matchesClass =
+            classFilter === 'all' ? true :
+                student.classStatuses ? student.classStatuses.some(cs => cs.className === classFilter) :
+                    Array.isArray(student.class) ? student.class.includes(classFilter) :
+                        student.class === classFilter;
+
         const matchesSearch =
             student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             student.regNum.toLowerCase().includes(searchQuery.toLowerCase());
 
-        return matchesFilter && matchesSearch;
+        return matchesFilter && matchesSearch && matchesClass;
     });
 
     const handleDelete = async (regNum: string, e: React.MouseEvent) => {
@@ -62,19 +78,32 @@ export function StudentTable() {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             {/* Header Controls */}
-            <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="relative w-full sm:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                    <input
-                        type="text"
-                        placeholder="Search by name or Reg ID..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
-                    />
+            <div className="p-6 border-b border-slate-200 flex flex-col xl:flex-row items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
+                    <div className="relative w-full sm:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="Search by name or Reg ID..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 w-full rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                        />
+                    </div>
+
+                    <select
+                        value={classFilter}
+                        onChange={(e) => setClassFilter(e.target.value)}
+                        className="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-white min-w-[150px]"
+                    >
+                        <option value="all">All Classes</option>
+                        {uniqueClasses.map(cls => (
+                            <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                    </select>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     <button
                         onClick={() => setFilter(filter === 'paid' ? 'all' : 'paid')}
                         className={cn("px-4 py-2 rounded-lg text-sm font-medium border transition-colors flex items-center gap-2",
