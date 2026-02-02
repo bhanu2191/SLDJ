@@ -39,6 +39,7 @@ declare global {
             // SMS API
             getSmsConfig: () => Promise<any>;
             saveSmsConfig: (config: any) => Promise<any>;
+            getSmsBalance: () => Promise<any>;
             sendManualSms: (data: { recipients: string[], message: string }) => Promise<{ successCount: number, failCount: number }>;
             getSmsLogs: () => Promise<any[]>;
         };

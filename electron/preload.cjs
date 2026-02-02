@@ -39,7 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // SMS API
     getSmsConfig: () => ipcRenderer.invoke('get-sms-config'),
     saveSmsConfig: (config) => ipcRenderer.invoke('save-sms-config', config),
-    getSmsBalance: () => ipcRenderer.invoke('get-sms-balance'), // Missing function added
+    getSmsBalance: () => ipcRenderer.invoke('get-sms-balance'),
     sendManualSms: (data) => ipcRenderer.invoke('send-manual-sms', data),
     getSmsLogs: () => ipcRenderer.invoke('get-sms-logs'),
 

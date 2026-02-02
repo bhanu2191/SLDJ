@@ -14,6 +14,7 @@ import SystemSettings from './pages/admin/SystemSettings';
 import AdminPayments from './pages/admin/Payments';
 import Payments from './pages/operator/Payments';
 import MessageCenter from './pages/admin/MessageCenter';
+import { AdminStudentList } from './pages/admin/StudentList';
 
 // Placeholders for new pages to avoid build errors while we implement them
 // const Messages = () => <div>Messages Content</div>;
@@ -30,7 +31,7 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="payments" element={<AdminPayments />} />
             <Route path="users" element={<UserManagement />} />
-            <Route path="students" element={<StudentList />} />
+            <Route path="students" element={<AdminStudentList />} />
             <Route path="students/:id" element={<StudentProfile />} />
             <Route path="messages" element={<MessageCenter />} />
             <Route path="settings" element={<SystemSettings />} />

@@ -281,15 +281,13 @@ export const SystemSettings = () => {
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                    <div className="mt-6 flex justify-end">
-                        <button
-                            onClick={handleSaveSmsSettings}
-                            disabled={smsSaving}
-                            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
-                            <Save size={18} />
-                            {smsSaving ? 'Saving...' : 'Update Configuration'}
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleSaveSmsSettings}
+                        disabled={smsSaving}
+                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
+                        <Save size={18} />
+                        {smsSaving ? 'Saving...' : 'Update Configuration'}
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Download, CreditCard, Ban, Calendar, TrendingUp } from 'lucide-react';
+import { Download, CreditCard, Ban, Calendar, TrendingUp, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { PaymentReportModal } from '../../components/reports/PaymentReportModal';
 
 
 interface Payment {
@@ -26,13 +27,25 @@ const AdminPayments = () => {
     const [stats, setStats] = useState<Stats>({ totalRevenue: 0, monthlyRevenue: 0, todaysRevenue: 0, pendingAmount: 0 });
     const [groupByMonth, setGroupByMonth] = useState<{ [key: string]: Payment[] }>({});
     const [loading, setLoading] = useState(true);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [allPaymentsData, setAllPaymentsData] = useState<Payment[]>([]); // Store unfiltered for reports
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 15;
 
-    const [filterDate, setFilterDate] = useState('');
-    const [filterMonth, setFilterMonth] = useState('');
+    // Default to current month
+    const [filterMonth, setFilterMonth] = useState(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        return `${year}-${month}`;
+    });
+    const [filterClass, setFilterClass] = useState('');
+    const [availableClasses, setAvailableClasses] = useState<string[]>([]);
 
     useEffect(() => {
+        setCurrentPage(1); // Reset page on filter change
         loadData();
-    }, [filterDate, filterMonth]); // Reload/re-filter when filters change
+    }, [filterMonth, filterClass]); // Reload/re-filter when filters change
 
     const loadData = async () => {
         try {
@@ -42,18 +55,14 @@ const AdminPayments = () => {
             // @ts-ignore
             const statsData = await window.electronAPI.getAdminPaymentStats();
 
+            setAllPaymentsData(allPayments); // Save raw data for reports
+
+            // Extract unique classes
+            const classes = Array.from(new Set(allPayments.map((p: Payment) => p.class))).filter(Boolean).sort() as string[];
+            setAvailableClasses(classes);
+
             // Filter Logic
-            if (filterDate) {
-                // DB date format varies, but usually "M/D/YYYY" or similar locale string from `toLocaleDateString`.
-                // Input date is "YYYY-MM-DD".
-                // We need to normalize. Ideally we should have stored ISO in DB.
-                // Let's try to match by creating a Date object from DB date string and comparing.
-                allPayments = allPayments.filter((p: Payment) => {
-                    const dbDate = new Date(p.date);
-                    const filter = new Date(filterDate);
-                    return dbDate.toDateString() === filter.toDateString();
-                });
-            } else if (filterMonth) {
+            if (filterMonth) {
                 // filterMonth is "YYYY-MM"
                 // payment.month is "January 2026"
                 const [year, month] = filterMonth.split('-');
@@ -63,12 +72,19 @@ const AdminPayments = () => {
                 allPayments = allPayments.filter((p: Payment) => p.month === monthString);
             }
 
+            if (filterClass) {
+                allPayments = allPayments.filter((p: Payment) => p.class === filterClass);
+            }
+
             setPayments(allPayments);
             setStats(statsData);
 
+            // Pagination Logic
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const paginatedPayments = allPayments.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-            // Group payments by month
-            const grouped = allPayments.reduce((acc: any, payment: Payment) => {
+            // Group payments by month (using paginated data)
+            const grouped = paginatedPayments.reduce((acc: any, payment: Payment) => {
                 const month = payment.month; // e.g. "January 2026"
                 if (!acc[month]) acc[month] = [];
                 acc[month].push(payment);
@@ -83,30 +99,32 @@ const AdminPayments = () => {
         }
     };
 
-    const exportCSV = () => {
-        const headers = ['Receipt ID', 'Date', 'Student', 'Class', 'Type', 'Method', 'Month', 'Amount'];
-        const rows = payments.map(p => [
-            p.id,
-            p.date,
-            p.studentName || p.regNum,
-            p.class,
-            p.type,
-            p.method,
-            p.month,
-            p.amount
-        ]);
+    // Calculate total pages based on current filtered payments count (need access to allPayments length effectively)
+    // IMPORTANT: loadData updates state asynchronously. 
+    // To handle pagination correctly dynamically without re-fetching everything, strictly we should filter first then paginate.
+    // However, loadData does everything. Let's adjust loadData dependency:
+    // Actually, `loadData` sets `payments` state to the *filtered* list. 
+    // So we can re-derive the grouped data in a separate effect or memo, OR just update the current approach.
+    // The current approach in `loadData` sets `payments` to `allPayments` (the filtered list).
+    // So we can use `payments` state length for total pages calculation.
+    // BUT `loadData` is setting `grouped` based on local `allPayments` variable. 
+    // If I use `payments` state for rendering pagination controls, I need to make sure `groupByMonth` reflects the slice.
 
-        const csvContent = "data:text/csv;charset=utf-8,"
-            + [headers.join(','), ...rows.map(e => e.join(','))].join("\n");
+    // RETHINK: separating data loading/filtering from pagination/grouping would be cleaner, 
+    // but to keep changes minimal to the existing structure:
+    // I need `useEffect` on `currentPage` to re-run the slicing?
+    // OR just include `currentPage` in the dependency array of `loadData`?
+    // YES, adding `currentPage` to dependencies.
 
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "payments_export.csv");
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    useEffect(() => {
+        loadData();
+    }, [currentPage]);
+
+
+    // Old CSV Export Removed
+    /* 
+    const exportCSV = () => { ... }
+    */
 
     if (loading) {
         return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -117,6 +135,12 @@ const AdminPayments = () => {
 
     return (
         <div className="space-y-6">
+            <PaymentReportModal
+                isOpen={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+                payments={allPaymentsData}
+            />
+
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -124,11 +148,11 @@ const AdminPayments = () => {
                     <p className="text-gray-500">Track revenue and payment history</p>
                 </div>
                 <button
-                    onClick={exportCSV}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition w-fit"
+                    onClick={() => setIsReportModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition w-fit shadow-sm"
                 >
-                    <Download size={18} />
-                    Export CSV
+                    <FileSpreadsheet size={18} />
+                    Generate Report
                 </button>
             </div>
 
@@ -192,30 +216,28 @@ const AdminPayments = () => {
 
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500">Filter:</span>
-                            <input
-                                type="date"
-                                value={filterDate}
-                                onChange={(e) => {
-                                    setFilterDate(e.target.value);
-                                    if (e.target.value) setFilterMonth(''); // Clear month if date selected
-                                }}
-                                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary"
-                            />
-                            <span className="text-sm text-gray-400">OR</span>
+                            <span className="text-sm text-gray-500">Filter by:</span>
                             <input
                                 type="month"
                                 value={filterMonth}
-                                onChange={(e) => {
-                                    setFilterMonth(e.target.value);
-                                    if (e.target.value) setFilterDate(''); // Clear date if month selected
-                                }}
+                                onChange={(e) => setFilterMonth(e.target.value)}
                                 className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary"
                             />
+
+                            <select
+                                value={filterClass}
+                                onChange={(e) => setFilterClass(e.target.value)}
+                                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary min-w-[150px]"
+                            >
+                                <option value="">All Classes</option>
+                                {availableClasses.map(c => (
+                                    <option key={c} value={c}>{c}</option>
+                                ))}
+                            </select>
                         </div>
-                        {(filterDate || filterMonth) && (
+                        {(filterMonth || filterClass) && (
                             <button
-                                onClick={() => { setFilterDate(''); setFilterMonth(''); }}
+                                onClick={() => { setFilterMonth(''); setFilterClass(''); }}
                                 className="text-sm text-red-600 hover:text-red-700 font-medium px-2 py-1 hover:bg-red-50 rounded"
                             >
                                 Clear
@@ -256,6 +278,43 @@ const AdminPayments = () => {
                             </table>
                         </div>
                     ))}
+                    {Object.keys(groupByMonth).length === 0 && (
+                        <div className="p-8 text-center text-gray-500">
+                            No payments found for this period.
+                        </div>
+                    )}
+                </div>
+
+                {/* Pagination Controls */}
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                        <div>
+                            <p className="text-sm text-gray-700">
+                                Showing dates <span className="font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, payments.length)}</span> of{' '}
+                                <span className="font-medium">{payments.length}</span> results
+                            </p>
+                        </div>
+                        <div>
+                            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <span className="sr-only">Previous</span>
+                                    <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(prev => (prev * ITEMS_PER_PAGE < payments.length ? prev + 1 : prev))}
+                                    disabled={currentPage * ITEMS_PER_PAGE >= payments.length}
+                                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <span className="sr-only">Next</span>
+                                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                                </button>
+                            </nav>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
