@@ -4,9 +4,17 @@ import { Users, UserPlus, MessageSquare, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 
 export function OperatorLayout() {
-    const { userRole, logout } = useAuth();
+    const { userRole, logout, isLoading } = useAuth();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     if (userRole !== 'operator') {
         // If we are an admin trying to access operator pages, maybe redirect to admin? 

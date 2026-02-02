@@ -809,9 +809,10 @@ app.whenReady().then(() => {
         const settings = db.prepare('SELECT * FROM sms_settings').get();
         if (!settings) return { success: false, error: "No settings found" };
 
-        // If mocked or invalid key, return placeholder
-        if (!settings.apiKey || settings.provider !== 'text.lk') {
-            return { success: false, error: "Configure text.lk to see balance" };
+        // If mocked or invalid key, return placeholder. allow case-insensitive 'text.lk'
+        const provider = (settings.provider || '').toLowerCase().trim();
+        if (!settings.apiKey || !provider.includes('text.lk')) {
+            return { success: false, error: "Set provider to 'text.lk'" };
         }
 
         return await smsService.getBalance(settings);
