@@ -9,6 +9,7 @@ export interface Student {
     guardianPhone?: string;
     status: 'paid' | 'pending' | 'overdue';
     avatar?: string;
+    gender?: 'male' | 'female';
     classStatuses?: { className: string, status: 'paid' | 'pending' | 'overdue' }[];
 }
 

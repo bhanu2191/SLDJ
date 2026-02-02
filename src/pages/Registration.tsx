@@ -16,6 +16,7 @@ export function Registration() {
     // Form State
     const [formData, setFormData] = useState({
         fullName: '',
+        gender: '',
         dob: '',
         phone: '',
         email: '',
@@ -56,6 +57,12 @@ export function Registration() {
             case 'fullName':
                 if (!value.trim()) {
                     showCuteAlert('Oops!', 'Student Name is required!', 'error', 'fullName');
+                    return false;
+                }
+                return true;
+            case 'gender':
+                if (!value) {
+                    showCuteAlert('Gender?', 'Please select a gender.', 'error', 'gender');
                     return false;
                 }
                 return true;
@@ -160,6 +167,7 @@ export function Registration() {
     const handleClear = () => {
         setFormData({
             fullName: '',
+            gender: '',
             dob: '',
             phone: '',
             email: '',
@@ -176,6 +184,12 @@ export function Registration() {
         // 1. Full Name
         if (!formData.fullName.trim()) {
             showCuteAlert('Oops!', 'Student Name is required!', 'error', 'fullName');
+            return;
+        }
+
+        // 1.5 Gender
+        if (!formData.gender) {
+            showCuteAlert('Gender?', 'Please select a gender.', 'error', 'gender');
             return;
         }
 
@@ -223,9 +237,18 @@ export function Registration() {
             const finalId = commitNextStudentId();
 
             // 2. Save student
+            // 2. Save student
+            // Determine avatar based on gender
+            // Using local images from public directory
+            const avatarUrl = formData.gender === 'male'
+                ? '/boy.png'
+                : '/girl.png';
+
             await saveStudent({
                 regNum: finalId,
                 name: formData.fullName,
+                gender: formData.gender as 'male' | 'female',
+                avatar: avatarUrl,
                 class: formData.selectedClasses, // Pass array, backend handles JSON stringify
                 dob: formData.dob,
                 phone: formData.phone,
@@ -306,8 +329,23 @@ export function Registration() {
                                         placeholder="e.g. Kasun Perera"
                                         value={formData.fullName}
                                         onChange={handleChange}
-                                        onKeyDown={(e) => handleKeyDown(e, 'fullName', 'dob')}
+                                        onKeyDown={(e) => handleKeyDown(e, 'fullName', 'gender')}
                                     />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="gender">Gender</Label>
+                                    <select
+                                        id="gender"
+                                        value={formData.gender}
+                                        onChange={handleChange}
+                                        onKeyDown={(e) => handleKeyDown(e, 'gender', 'dob')}
+                                        className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 transition-all"
+                                    >
+                                        <option value="" disabled>Select Gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
                                 </div>
 
                                 <div className="space-y-2">
