@@ -19,7 +19,7 @@ async function sendSMS(to, message, config = {}) {
     const provider = (config.provider || '').toLowerCase();
 
     // Check if we have valid credentials
-    if (config.apiKey && config.apiKey !== '********************') {
+    if (config.apiKey) {
 
         // Detect Unicode (Sinhala/Tamil)
         // Basic check: if contains characters outside GSM 7-bit range
@@ -30,12 +30,12 @@ async function sendSMS(to, message, config = {}) {
         console.log(`[SMS SERVICE] Sending via Text.lk. Type: ${type}, Recipient: ${to}`);
 
         try {
-            // Text.lk V3 API Endpoint
+            // Text.lk V3 API Endpoint (Corrected)
             const endpoint = 'https://app.text.lk/api/v3/sms/send';
 
             const payload = {
                 recipient: to,
-                sender_id: config.senderId || 'SLDJ', // Default sender ID if missing
+                sender_id: config.senderId || 'Notify', // Fallback to 'Notify' which is often a default
                 type: type,
                 message: message
             };
@@ -82,7 +82,7 @@ async function sendSMS(to, message, config = {}) {
 
 // Get current balance
 async function getBalance(config = {}) {
-    if (!config.apiKey || config.apiKey === '********************') {
+    if (!config.apiKey || config.apiKey === '3024|snp6GrpsKdNpsggKgtf1GKkkpKRKOgZr9mbEHIK4595600a6') {
         return { success: false, error: "Invalid API Key" };
     }
 

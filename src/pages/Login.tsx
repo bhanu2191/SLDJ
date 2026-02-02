@@ -30,6 +30,14 @@ export function Login() {
     const { login, isLoading, error: contextError } = useAuth();
     const navigate = useNavigate();
 
+    // Check for existing session and redirect
+    const { user } = useAuth();
+    React.useEffect(() => {
+        if (user) {
+            navigate(user.role === 'admin' ? '/admin' : '/operator', { replace: true });
+        }
+    }, [user, navigate]);
+
     // Watch for 2FA requirement
     React.useEffect(() => {
         if (contextError === 'OTP_REQUIRED') {
@@ -69,7 +77,7 @@ export function Login() {
                     icon: 'success',
                     title: 'Welcome Back!'
                 });
-                navigate(selectedRole === 'admin' ? '/admin' : '/operator');
+                navigate(selectedRole === 'admin' ? '/admin' : '/operator', { replace: true });
             }
             return;
         }
@@ -92,7 +100,7 @@ export function Login() {
                 icon: 'success',
                 title: 'Welcome!'
             });
-            navigate(selectedRole === 'admin' ? '/admin' : '/operator');
+            navigate(selectedRole === 'admin' ? '/admin' : '/operator', { replace: true });
         }
     };
 
