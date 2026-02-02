@@ -139,7 +139,14 @@ function initDB() {
     // Initialize default SMS settings if empty
     const settingsCount = db.prepare('SELECT COUNT(*) as count FROM sms_settings').get().count;
     if (settingsCount === 0) {
-        db.prepare("INSERT INTO sms_settings (provider, apiKey, senderId) VALUES ('DefaultGateway', '', 'SLDJ')").run();
+        db.prepare("INSERT INTO sms_settings (provider, apiKey, senderId, adminPhone) VALUES ('DefaultGateway', '', 'SLDJ', '')").run();
+    }
+
+    // Migration for sms_settings adminPhone
+    try {
+        db.exec("ALTER TABLE sms_settings ADD COLUMN adminPhone TEXT");
+    } catch (e) {
+        // Ignore
     }
 
     // SMS Logs Table
@@ -157,6 +164,7 @@ function initDB() {
 initDB();
 
 let mainWindow = null;
+let otpStore = { code: null, expires: 0 };
 
 const createWindow = () => {
     mainWindow = new BrowserWindow({
@@ -725,11 +733,76 @@ app.whenReady().then(() => {
     ipcMain.handle('save-sms-config', (event, config) => {
         const stmt = db.prepare(`
             UPDATE sms_settings 
-            SET provider = @provider, apiKey = @apiKey, senderId = @senderId, enabled = @enabled, updated_at = CURRENT_TIMESTAMP
+            SET provider = @provider, apiKey = @apiKey, senderId = @senderId, enabled = @enabled, adminPhone = @adminPhone, updated_at = CURRENT_TIMESTAMP
             WHERE id = (SELECT id FROM sms_settings LIMIT 1)
         `);
         stmt.run(config);
         return config;
+    });
+
+    // --- IPC Handlers for 2FA OTP ---
+    ipcMain.handle('send-2fa-otp', async (event, { phone }) => {
+        // 1. Get Settings
+        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        if (!settings || !settings.enabled) {
+            return { success: false, error: "SMS Service Disabled" };
+        }
+
+        // 2. Determine Recipient
+        // Priority: Passed Phone > Settings AdminPhone > Error
+        const targetPhone = phone || settings.adminPhone;
+
+        if (!targetPhone) {
+            return { success: false, error: "No Admin Phone Number configured." };
+        }
+
+        // 3. Generate Code
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        otpStore = {
+            code: code,
+            expires: Date.now() + 5 * 60 * 1000 // 5 minutes
+        };
+
+        // 4. Send SMS
+        const message = `SLDJ Admin Login Code: ${code}. Valid for 5 minutes.`;
+        try {
+            // Force Sender ID to 'SLDJ' for OTP to prevent lockout if DB has invalid 'TextLKDemo'
+            // Use 'Notify' as a common fallback if SLDJ isn't registered, but let's try SLDJ first matching the brand.
+            const otpSettings = { ...settings, senderId: 'SLDJ' };
+
+            const res = await smsService.sendSMS(targetPhone, message, otpSettings);
+
+            // Log it
+            db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                targetPhone, message, res.success ? 'sent' : 'failed'
+            );
+
+            return res;
+        } catch (e) {
+            console.error("OTP Send Error:", e);
+            return { success: false, error: e.message };
+        }
+    });
+
+    ipcMain.handle('verify-2fa-otp', (event, code) => {
+        console.log(`[AUTH] Verifying OTP: Input=${code}, Actual=${otpStore.code}`);
+
+        if (!otpStore.code || !otpStore.expires) {
+            return { success: false, error: "No OTP request found. Please try again." };
+        }
+
+        if (Date.now() > otpStore.expires) {
+            otpStore = { code: null, expires: 0 };
+            return { success: false, error: "OTP has expired." };
+        }
+
+        if (code === otpStore.code) {
+            // Success
+            otpStore = { code: null, expires: 0 }; // Consume OTP
+            return { success: true };
+        } else {
+            return { success: false, error: "Invalid Verification Code." };
+        }
     });
 
     ipcMain.handle('get-sms-balance', async () => {

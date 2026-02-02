@@ -12,6 +12,8 @@ export interface User {
 export interface LoginCredentials {
     role: UserRole; // Keeping role selection as per current UI flow, though usually username implies role.
     password?: string;
+    otp?: string;
+    phone?: string;
 }
 
 export interface AuthResponse {

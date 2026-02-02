@@ -9,6 +9,17 @@ declare global {
             updateStudent: (student: any) => Promise<any>;
             deleteStudent: (id: string) => Promise<string>;
 
+            // Operator API
+            getOperators: () => Promise<any[]>;
+            addOperator: (operator: any) => Promise<any>;
+            deleteOperator: (id: string | number) => Promise<string | number>;
+            toggleOperatorStatus: (id: string | number, status: string) => Promise<any>;
+            verifyOperator: (creds: { email?: string, password?: string, role?: string }) => Promise<any>;
+
+            // 2FA API
+            sendOtp: (phone: string) => Promise<any>;
+            verifyOtp: (code: string) => Promise<any>;
+
             // Payment API
             addPayment: (payment: any) => Promise<any>;
             getStudentPayments: (regNum: string) => Promise<any[]>;

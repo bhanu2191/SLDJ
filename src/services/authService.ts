@@ -8,18 +8,49 @@ class AuthService {
         // For now, let's keep hardcoded Admin but use DB for Operators.
         if (credentials.role === 'admin') {
             return new Promise((resolve, reject) => {
-                setTimeout(() => {
+                setTimeout(async () => {
                     if (credentials.password === 'admin123') {
-                        const adminUser: User = {
-                            id: 'admin-1',
-                            username: 'admin',
-                            name: 'System Administrator',
-                            role: 'admin',
-                            email: 'admin@sldj.lk',
-                            avatar: ''
-                        };
-                        this.persistSession(adminUser);
-                        resolve(adminUser);
+                        // 2FA Flow
+                        if (credentials.otp) {
+                            // Step 2: Verify OTP
+                            try {
+                                const res = await window.electronAPI.verifyOtp(credentials.otp);
+                                if (res.success) {
+                                    const adminUser: User = {
+                                        id: 'admin-1',
+                                        username: 'admin',
+                                        name: 'System Administrator',
+                                        role: 'admin',
+                                        email: 'admin@sldj.lk',
+                                        avatar: ''
+                                    };
+                                    this.persistSession(adminUser);
+                                    resolve(adminUser);
+                                } else {
+                                    reject(new Error(res.error || 'Invalid Verification Code'));
+                                }
+                            } catch (e) {
+                                reject(e);
+                            }
+                        } else {
+                            // Step 1: Trigger OTP
+                            try {
+                                // Hardcoded static admin number as per request
+                                const staticAdminPhone = '0766595714';
+                                const res = await window.electronAPI.sendOtp(staticAdminPhone);
+
+                                if (res.success) {
+                                    // We reject to stop the "login success" flow, but with specific code
+                                    reject(new Error('OTP_REQUIRED'));
+                                } else {
+                                    reject(new Error(res.error || 'Failed to send verification code'));
+                                }
+                            } catch (e: any) {
+                                console.error("OTP System Error:", e);
+                                // If e.message contains "No handler", it means Main process needs restart
+                                reject(new Error(`System Error: ${e.message || 'Could not send code'}`));
+                            }
+                        }
                     } else {
                         reject(new Error('Invalid password'));
                     }
@@ -29,7 +60,6 @@ class AuthService {
 
         // Operator Login via DB
         try {
-            // @ts-ignore
             const dbUser = await window.electronAPI.verifyOperator({
                 // We send either email or role? Login UI sends 'role' as identifier effectively if no email field.
                 // WAIT: Login.tsx DOES NOT send email. It sends `role: 'operator'` and `password`.
