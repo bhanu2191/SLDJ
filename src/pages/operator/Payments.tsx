@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { CreditCard, Printer, Check, Mail, ArrowLeft } from 'lucide-react';
 import { PaymentHistoryList } from '../../components/profile/PaymentHistoryList';
+import { useAuth } from '../../context/AuthContext';
+import Swal from 'sweetalert2';
 
 export const Payments = () => {
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -11,6 +13,19 @@ export const Payments = () => {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [classCategories, setClassCategories] = useState<any[]>([]);
     const [sendingEmail, setSendingEmail] = useState(false);
+    const { userRole } = useAuth();
+
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
 
 
 
@@ -106,6 +121,7 @@ export const Payments = () => {
                         id: student.regNum,
                         name: student.name,
                         email: student.email,
+                        phone: student.phone, // Add phone number
                         regNum: student.regNum,
                         classes: classDetails, // Array of { name, fee, status }
                         lastPayment: lastPaymentDate,
@@ -120,7 +136,10 @@ export const Payments = () => {
                     setSelectedClassesToPay(unpaid);
 
                 } else {
-                    alert('Student not found');
+                    Toast.fire({
+                        icon: 'info',
+                        title: 'Student not found'
+                    });
                 }
             } catch (error) {
                 console.error("Search failed", error);
@@ -132,7 +151,10 @@ export const Payments = () => {
 
     const handleProcessPayment = async () => {
         if (!selectedStudent || selectedClassesToPay.length === 0) {
-            alert("No classes selected for payment");
+            Toast.fire({
+                icon: 'warning',
+                title: 'No classes selected'
+            });
             return;
         }
 
@@ -164,45 +186,66 @@ export const Payments = () => {
 
             setPaymentSuccess(true);
 
-            // Auto-send email if enabled
+            // Calculate totals for receipt
+            const paidItems = selectedStudent.classes
+                .filter((c: any) => selectedClassesToPay.includes(c.name));
+            const totalAmount = paidItems.reduce((sum: number, c: any) => sum + c.fee, 0);
+            const courseNames = paidItems.map((c: any) => c.name).join(', ');
+            const receiptNo = 'REC-' + Date.now().toString().slice(-6);
+
+            // 1. Auto-send email if enabled
             if (autoSendEmail && selectedStudent.email) {
                 try {
                     setSendingEmail(true);
-                    // Calculate totals for receipt
-                    const paidItems = selectedStudent.classes
-                        .filter((c: any) => selectedClassesToPay.includes(c.name));
-                    const totalAmount = paidItems.reduce((sum: number, c: any) => sum + c.fee, 0);
-                    const courseNames = paidItems.map((c: any) => c.name).join(', ');
 
                     await window.electronAPI.sendReceiptEmail({
                         email: selectedStudent.email,
                         studentName: selectedStudent.name,
                         amount: totalAmount,
                         date: date,
-                        receiptNo: 'REC-' + Date.now().toString().slice(-6),
+                        receiptNo: receiptNo,
                         course: courseNames
                     });
-                    // Don't alert on auto-send to keep flow smooth, maybe a toast or just log?
-                    // For now, no alert to avoid blocking success screen, or maybe just a console log.
                     console.log("Auto-email sent successfully");
                 } catch (emailErr) {
                     console.error("Auto-email failed", emailErr);
-                    alert("Payment recorded, but failed to send auto-receipt email.");
+                    // alert("Payment recorded, but failed to send auto-receipt email.");
                 } finally {
                     setSendingEmail(false);
+                }
+            }
+
+            // 2. Send SMS Notification
+            if (selectedStudent.phone) {
+                try {
+                    const smsMessage = `SL Dream: Payment Received.\nLKR ${totalAmount}\nMonth: ${month}\nClass: ${courseNames}\nRef: ${receiptNo}\nThank you.`;
+
+                    await window.electronAPI.sendManualSms({
+                        recipients: [selectedStudent.phone],
+                        message: smsMessage
+                    });
+                    console.log("Payment SMS sent successfully");
+                } catch (smsErr) {
+                    console.error("Payment SMS failed", smsErr);
                 }
             }
 
             refreshData(); // Updates history and status
         } catch (error) {
             console.error("Payment failed", error);
-            alert("Failed to process payment");
+            Toast.fire({
+                icon: 'error',
+                title: 'Payment processing failed'
+            });
         }
     };
 
     const handleSendEmail = async () => {
         if (!selectedStudent || !selectedStudent.email) {
-            alert("No email address found for this student.");
+            Toast.fire({
+                icon: 'info',
+                title: 'No email found for student'
+            });
             return;
         }
 
@@ -223,10 +266,16 @@ export const Payments = () => {
                 receiptNo: 'REC-' + Date.now().toString().slice(-6),
                 course: courseNames
             });
-            alert("Email receipt sent successfully!");
+            Toast.fire({
+                icon: 'success',
+                title: 'Email receipt sent!'
+            });
         } catch (error) {
             console.error("Failed to send email:", error);
-            alert("Failed to send email receipt. Please check internet connection or settings.");
+            Toast.fire({
+                icon: 'error',
+                title: 'Failed to send email'
+            });
         } finally {
             setSendingEmail(false);
         }
@@ -243,7 +292,7 @@ export const Payments = () => {
         <div className="max-w-4xl mx-auto space-y-8" >
             <div className="flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/students')}
+                    onClick={() => navigate(`/${userRole}/students`)}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                 >
                     <ArrowLeft className="text-gray-600" />
@@ -387,7 +436,7 @@ export const Payments = () => {
 
                                 <div className="flex justify-center gap-4">
                                     <button
-                                        onClick={() => navigate('/students')}
+                                        onClick={() => navigate(`/${userRole}/students`)}
                                         className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 from-medium"
                                     >
                                         Back to List
@@ -400,7 +449,10 @@ export const Payments = () => {
                                         <Mail size={18} />
                                         {sendingEmail ? 'Sending...' : 'Send Email Receipt'}
                                     </button>
-                                    <button className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium flex items-center gap-2">
+                                    <button
+                                        onClick={() => window.print()}
+                                        className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium flex items-center gap-2"
+                                    >
                                         <Printer size={18} />
                                         Print Receipt
                                     </button>
