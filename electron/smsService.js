@@ -82,70 +82,106 @@ async function sendSMS(to, message, config = {}) {
 
 // Get current balance
 async function getBalance(config = {}) {
-    if (!config.apiKey) {
-        return { success: false, error: "API Key not configured" };
+    // 1. Validate and Trim API Key
+    const apiKey = (config.apiKey || '').trim();
+    if (!apiKey) {
+        return { success: false, error: "Invalid API Key" };
     }
 
-    try {
-        const endpoint = 'https://app.text.lk/api/v3/balance';
-        const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${config.apiKey}`,
-                'Accept': 'application/json'
-            }
-        });
+    const headers = {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    };
 
-        const data = await response.json();
-        /*
-           Success Response:
-           {
-             "status": "success",
-             "data": "1250 sms unit with all details" // It seems to be a string based on user screenshot?
-             // Or sometimes { "status": "success", "data": { "balance": 1250, ... } }
-             // User screenshot says: "Returns: Returns a contact object..." but example shows nested data.
-             // Actually, the user screenshot shows "data": "sms unit with all details" which is vague.
-             // But usually text.lk returns: { status: "success", data: { balance: 100 } } OR just data string?
-             // Let's assume standard "data.balance" or safe access.
-             // Wait, user provided Screenshot 2 showing "Returns a contact object..." which is wrong for balance endpoint.
-             // But the example response shows: { "status": "success", "data": "sms unit with all details" }.
-             // This implies 'data' might be the balance string itself? Or an object.
-             // Let's make it robust.
-        */
+    // Helper to find balance recursively
+    const findBalanceInObject = (obj, depth = 0) => {
+        if (!obj || typeof obj !== 'object' || depth > 3) return null;
 
-        console.log("[SMS SERVICE] Balance Response:", data);
+        const targetKeys = ['remaining_unit', 'sms_balance', 'balance', 'unit', 'remaining', 'credits', 'units', 'count', 'amount', 'wallet'];
 
-        if (data.status === 'success') {
-            let balance = "Unknown";
-
-            // Check for direct value (string or number) in data.data
-            if (data.data !== undefined && (typeof data.data === 'string' || typeof data.data === 'number')) {
-                balance = data.data;
+        // 1. Check direct keys first
+        for (const key of Object.keys(obj)) {
+            const lowerKey = key.toLowerCase();
+            if (targetKeys.some(k => lowerKey.includes(k))) {
+                const val = obj[key];
+                // Try to extract number
+                if (typeof val === 'number') return val;
+                if (typeof val === 'string') {
+                    const match = val.match(/(\d+(\.\d+)?)/);
+                    if (match) return match[0];
+                }
             }
-            // Check for nested object with 'remaining_balance' (Common Text.lk V3 format)
-            else if (typeof data.data === 'object' && data.data && data.data.remaining_balance !== undefined) {
-                balance = data.data.remaining_balance;
-            }
-            // Check for nested object with 'balance' (Alternative format)
-            else if (typeof data.data === 'object' && data.data && data.data.balance !== undefined) {
-                balance = data.data.balance;
-            }
-            // Check for direct balance property
-            else if (data.balance !== undefined) {
-                balance = data.balance;
-            }
-            // Fallback: Show structure for debugging if still unknown
-            else {
-                balance = `Debug: ${JSON.stringify(data).substring(0, 20)}...`;
-            }
-
-            return { success: true, balance: balance };
-        } else {
-            return { success: false, error: data.message || "Failed to fetch balance" };
         }
 
+        // 2. Recursive search
+        for (const key of Object.keys(obj)) {
+            if (typeof obj[key] === 'object' && obj[key] !== null) {
+                const found = findBalanceInObject(obj[key], depth + 1);
+                if (found !== null) return found;
+            }
+        }
+        return null;
+    };
+
+    try {
+        // Strategy 1: DIRECT /balance endpoint (Priority as requested)
+        console.log("[SMS SERVICE] Checking Balance via /balance (Primary)...");
+        const responseBal = await fetch('https://app.text.lk/api/v3/balance', { method: 'GET', headers });
+        const textBal = await responseBal.text();
+        console.log("[SMS SERVICE] /balance Response:", textBal);
+
+        try {
+            const jsonBal = JSON.parse(textBal);
+            if (jsonBal.status === 'success') {
+                const bal = findBalanceInObject(jsonBal.data) || findBalanceInObject(jsonBal);
+                if (bal !== null) return { success: true, balance: bal };
+
+                // Fallback: Check if data itself is a primitive value (Number or String)
+                const raw = jsonBal.data;
+                if (raw !== undefined && raw !== null) {
+                    if (typeof raw === 'number') return { success: true, balance: raw };
+                    if (typeof raw === 'string') {
+                        const match = raw.match(/(\d+(\.\d+)?)/);
+                        if (match) return { success: true, balance: match[0] };
+                    }
+                }
+            }
+        } catch (e) { /* Ignore */ }
+
+        // Strategy 2: /me (Profile) Fallback
+        console.log("[SMS SERVICE] Checking Balance via /me (Fallback)...");
+        const responseMe = await fetch('https://app.text.lk/api/v3/me', { method: 'GET', headers });
+        const textMe = await responseMe.text();
+        console.log("[SMS SERVICE] /me Response:", textMe);
+
+        try {
+            const jsonMe = JSON.parse(textMe);
+            if (jsonMe.status === 'success') {
+                const bal = findBalanceInObject(jsonMe.data) || findBalanceInObject(jsonMe);
+                if (bal !== null) return { success: true, balance: bal };
+            }
+        } catch (e) { /* Ignore JSON error */ }
+
+        // Strategy 3: HTTP API Fallback (Query Param)
+        console.log("[SMS SERVICE] Checking Balance via Query Param...");
+        const responseQuery = await fetch(`https://app.text.lk/api/v3/balance?api_token=${apiKey}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json' }
+        });
+        const textQuery = await responseQuery.text();
+        try {
+            const jsonQuery = JSON.parse(textQuery);
+            if (jsonQuery.status === 'success') {
+                const bal = findBalanceInObject(jsonQuery.data) || findBalanceInObject(jsonQuery);
+                if (bal !== null) return { success: true, balance: bal };
+            }
+        } catch (e) { /* Ignore */ }
+
+        return { success: false, error: "No balance found in API" };
+
     } catch (e) {
-        console.error("[SMS SERVICE] Balance Check Error:", e);
+        console.error("[SMS SERVICE] Balance Fetch Error:", e);
         return { success: false, error: e.message };
     }
 }

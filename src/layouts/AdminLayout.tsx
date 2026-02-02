@@ -4,9 +4,17 @@ import { LayoutDashboard, Users, UserCog, Settings, LogOut, Menu, X, CreditCard 
 import { useState } from 'react';
 
 export function AdminLayout() {
-    const { userRole, logout } = useAuth();
+    const { userRole, logout, isLoading } = useAuth();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
 
     if (userRole !== 'admin') {
         return <Navigate to="/login" replace />;

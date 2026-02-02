@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw } from 'lucide-react';
 
 interface ClassCategory {
     id: number | string;
@@ -49,11 +49,13 @@ export const SystemSettings = () => {
             if (result.success) {
                 setSmsBalance(result.balance);
             } else {
-                setSmsBalance(result.error || "Unavailable");
+                // Show actual error for debugging
+                console.error("Balance Error:", result.error);
+                setSmsBalance(typeof result.error === 'string' ? result.error.substring(0, 20) : "Failed");
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to load balance:", error);
-            setSmsBalance("Error");
+            setSmsBalance(error.message ? error.message.substring(0, 15) : "Net Error");
         }
     };
 
@@ -129,6 +131,8 @@ export const SystemSettings = () => {
             // @ts-ignore
             await window.electronAPI.saveSmsConfig(smsSettings);
             alert('SMS Configuration saved!');
+            // Refresh balance immediately with new keys
+            await loadBalance();
         } catch (error) {
             console.error("Failed to save SMS settings:", error);
             alert('Failed to save SMS configuration.');
@@ -212,15 +216,27 @@ export const SystemSettings = () => {
 
             {/* SMS Gateway Settings */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-semibold text-gray-800">SMS Gateway Configuration</h2>
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800">SMS Gateway Configuration</h2>
+                        <p className="text-sm text-gray-500">Configure your Text.lk or generic SMS provider settings.</p>
+                    </div>
                     {smsBalance !== null && (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${String(smsBalance).toLowerCase().includes('error') || String(smsBalance).toLowerCase().includes('fail')
-                                ? 'text-red-600 bg-red-50 border-red-100'
-                                : 'text-green-600 bg-green-50 border-green-100'
-                            }`}>
-                            {String(smsBalance).toLowerCase().includes('error') ? smsBalance : `Balance: ${smsBalance} SMS`}
-                        </span>
+                        <div className="text-right bg-green-50 px-4 py-2 rounded-lg border border-green-100 relative group flex items-center gap-4">
+                            <div>
+                                <span className="block text-xs text-green-600 uppercase tracking-wider font-bold">Available Balance</span>
+                                <span className="text-2xl font-extrabold text-green-700">
+                                    {smsBalance} <span className="text-sm font-medium">SMS</span>
+                                </span>
+                            </div>
+                            <button
+                                onClick={loadBalance}
+                                title="Refresh Balance"
+                                className="bg-white text-green-600 rounded-full p-2 shadow-sm border border-green-200 hover:bg-green-600 hover:text-white transition-all"
+                            >
+                                <RefreshCw size={18} />
+                            </button>
+                        </div>
                     )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -265,15 +281,13 @@ export const SystemSettings = () => {
                     </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                    <div className="mt-6 flex justify-end">
-                        <button
-                            onClick={handleSaveSmsSettings}
-                            disabled={smsSaving}
-                            className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
-                            <Save size={18} />
-                            {smsSaving ? 'Saving...' : 'Update Configuration'}
-                        </button>
-                    </div>
+                    <button
+                        onClick={handleSaveSmsSettings}
+                        disabled={smsSaving}
+                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
+                        <Save size={18} />
+                        {smsSaving ? 'Saving...' : 'Update Configuration'}
+                    </button>
                 </div>
             </div>
         </div>
