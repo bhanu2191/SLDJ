@@ -46,4 +46,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 2FA Authentication
     sendOtp: (phone) => ipcRenderer.invoke('send-2fa-otp', { phone }),
     verifyOtp: (code) => ipcRenderer.invoke('verify-2fa-otp', code),
+
+    // Debug
+    checkDbSchema: () => ipcRenderer.invoke('check-db-schema'),
 });

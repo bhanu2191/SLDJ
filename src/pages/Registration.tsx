@@ -278,7 +278,16 @@ export function Registration() {
             navigate(`/${userRole}/students`);
         } catch (error) {
             console.error("Registration failed:", error);
-            showCuteAlert('Oh no!', 'Failed to save student. Try again.', 'error');
+            // Show the actual error message from backend if available
+            const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
+
+            // User friendly message for common errors
+            let displayMessage = `Failed to save: ${errorMessage}`;
+            if (errorMessage.includes('UNIQUE constraint')) {
+                displayMessage = 'This Student ID already exists. Please refresh or check the ID.';
+            }
+
+            showCuteAlert('Oh no!', displayMessage, 'error');
         }
     };
 

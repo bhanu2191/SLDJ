@@ -103,9 +103,9 @@ function initDB() {
         // Ignore error if column already exists
     }
 
-    // Migration for students table columns (guardian, guardianPhone, avatar)
+    // Migration for students table columns (guardian, guardianPhone, avatar, gender)
     // We try to add them one by one. If they exist, it throws, we ignore.
-    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone'];
+    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone', 'gender'];
     studentCols.forEach(col => {
         try {
             db.exec(`ALTER TABLE students ADD COLUMN ${col} TEXT`);
@@ -131,22 +131,23 @@ function initDB() {
             provider TEXT DEFAULT 'mock',
             apiKey TEXT,
             senderId TEXT,
+            adminPhone TEXT,
             enabled INTEGER DEFAULT 1,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
+    // Migration for sms_settings adminPhone (for existing databases)
+    try {
+        db.exec("ALTER TABLE sms_settings ADD COLUMN adminPhone TEXT");
+    } catch (e) {
+        // Ignore error if column already exists
+    }
+
     // Initialize default SMS settings if empty
     const settingsCount = db.prepare('SELECT COUNT(*) as count FROM sms_settings').get().count;
     if (settingsCount === 0) {
         db.prepare("INSERT INTO sms_settings (provider, apiKey, senderId, adminPhone) VALUES ('DefaultGateway', '', 'SLDJ', '')").run();
-    }
-
-    // Migration for sms_settings adminPhone
-    try {
-        db.exec("ALTER TABLE sms_settings ADD COLUMN adminPhone TEXT");
-    } catch (e) {
-        // Ignore
     }
 
     // SMS Logs Table
@@ -306,6 +307,16 @@ app.whenReady().then(() => {
 
     ipcMain.handle('add-student', (event, student) => {
         try {
+            console.log("Adding Student Payload:", student);
+
+            // Force check for gender column presence
+            try {
+                db.exec("ALTER TABLE students ADD COLUMN gender TEXT");
+                console.log("Added missing gender column via handler");
+            } catch (e) {
+                // Column likely exists, ignore error
+            }
+
             // Ensure class is stored as JSON string if array
             const studentToSave = { ...student };
             if (Array.isArray(studentToSave.class)) {
@@ -313,8 +324,8 @@ app.whenReady().then(() => {
             }
 
             const stmt = db.prepare(`
-            INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar)
-            VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar)
+            INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar, gender)
+            VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar, @gender)
         `);
             stmt.run(studentToSave);
 
@@ -345,6 +356,8 @@ app.whenReady().then(() => {
         }
     });
 
+
+
     ipcMain.handle('update-student', (event, student) => {
         const studentToSave = { ...student };
         if (Array.isArray(studentToSave.class)) {
@@ -362,13 +375,11 @@ app.whenReady().then(() => {
             guardianPhone = @guardianPhone, 
             status = @status, 
             avatar = @avatar,
+            gender = @gender,
             updated_at = CURRENT_TIMESTAMP
           WHERE regNum = @regNum
       `);
         stmt.run(studentToSave);
-        stmt.run(studentToSave);
-
-
 
         return studentToSave;
     });
@@ -455,6 +466,12 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Dashboard ---
+    ipcMain.handle('check-db-schema', () => {
+        const info = db.pragma('table_info(students)');
+        console.log('Schema Check:', info);
+        return info;
+    });
+
     ipcMain.handle('get-dashboard-stats', () => {
         const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 

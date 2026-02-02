@@ -9,6 +9,7 @@ interface ProfileHeaderProps {
         class: string | string[];
         photo?: string;
         email: string;
+        gender?: 'male' | 'female';
     };
 }
 
@@ -21,7 +22,14 @@ export function ProfileHeader({ student }: ProfileHeaderProps) {
             isSuspended ? "bg-slate-100" : "bg-white"
         )}>
             {/* Cover / Top Strip */}
-            <div className={cn("h-32 w-full", isSuspended ? "bg-slate-300" : "bg-primary")}></div>
+            <div className={cn(
+                "h-32 w-full transition-colors duration-300",
+                isSuspended
+                    ? "bg-slate-300"
+                    : student.gender?.toLowerCase() === 'female'
+                        ? "bg-pink-400"
+                        : "bg-primary"
+            )}></div>
 
             <div className="px-8 pb-8">
                 <div className="flex flex-col md:flex-row items-start md:items-end -mt-12 gap-6">

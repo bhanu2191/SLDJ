@@ -221,15 +221,17 @@ export function Login() {
                                                 id="password"
                                                 name="password"
                                                 type="password"
-                                                autoComplete="off"
+                                                autoComplete="current-password"
                                                 spellCheck={false}
                                                 required
+                                                disabled={isLoading}
+                                                autoFocus
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 className={`appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-200 ${selectedRole === 'admin'
                                                     ? 'focus:ring-accent'
                                                     : 'focus:ring-primary'
-                                                    }`}
+                                                    } ${isLoading ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-white'}`}
                                                 placeholder="Enter your password"
                                             />
                                         </div>

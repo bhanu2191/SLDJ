@@ -165,7 +165,9 @@ export function StudentProfile() {
         email: student.email || 'N/A',
         phone: student.phone || 'N/A',
         dob: student.dob || 'N/A',
-        address: 'N/A',
+        gender: student.gender,
+        // Debugging: Show raw gender value in address field to verify DB save
+        address: student.gender ? `Gender: ${student.gender}` : 'Gender: Not Saved',
         guardian: {
             name: student.guardian || 'N/A',
             phone: student.guardianPhone || 'N/A',
@@ -317,6 +319,22 @@ export function StudentProfile() {
                     <PaymentHistoryList payments={payments} />
                 )}
             </div>
-        </div>
+
+            <div className="mt-8 flex justify-center opacity-50 hover:opacity-100">
+                <button onClick={async () => {
+                    // @ts-ignore
+                    const schema = await window.electronAPI.checkDbSchema();
+                    const hasGender = schema.some((col: any) => col.name === 'gender');
+                    Swal.fire({
+                        title: 'DB Diagnostic',
+                        text: hasGender ? 'Gender column EXISTS! The DB is fine.' : 'Gender column MISSING! Data cannot save.',
+                        icon: hasGender ? 'success' : 'error',
+                        footer: JSON.stringify(schema.map((c: any) => c.name))
+                    });
+                }} className="text-xs text-slate-400 underline">
+                    Run System Check
+                </button>
+            </div>
+        </div >
     );
 }
