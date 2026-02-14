@@ -42,6 +42,9 @@ declare global {
             getSmsBalance: () => Promise<any>;
             sendManualSms: (data: { recipients: string[], message: string }) => Promise<{ successCount: number, failCount: number }>;
             getSmsLogs: () => Promise<any[]>;
+
+            // Payment Reminders
+            triggerPaymentReminders: () => Promise<{ success: boolean; message?: string; sent?: number; failed?: number }>;
         };
     }
 }

@@ -21,6 +21,7 @@ import Database from 'better-sqlite3';
 import nodemailer from 'nodemailer';
 import cron from 'node-cron'; // Import node-cron
 import smsService from './smsService.js'; // Import SMS Service
+import PDFDocument from 'pdfkit'; // Import PDFKit
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -40,6 +41,7 @@ if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir);
 }
 
+const smsConfigPath = join(dataDir, 'sms_config.json');
 const dbPath = join(dataDir, 'school.db');
 const db = new Database(dbPath);
 
@@ -132,17 +134,23 @@ function initDB() {
             apiKey TEXT,
             senderId TEXT,
             adminPhone TEXT,
+            reminderDate INTEGER DEFAULT 7,
+            reminderTime TEXT DEFAULT '09:00',
             enabled INTEGER DEFAULT 1,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 
-    // Migration for sms_settings adminPhone (for existing databases)
+    // Migration for sms_settings adminPhone, reminderDate, reminderTime (for existing databases)
     try {
         db.exec("ALTER TABLE sms_settings ADD COLUMN adminPhone TEXT");
-    } catch (e) {
-        // Ignore error if column already exists
-    }
+    } catch (e) { }
+    try {
+        db.exec("ALTER TABLE sms_settings ADD COLUMN reminderDate INTEGER DEFAULT 7");
+    } catch (e) { }
+    try {
+        db.exec("ALTER TABLE sms_settings ADD COLUMN reminderTime TEXT DEFAULT '09:00'");
+    } catch (e) { }
 
     // Initialize default SMS settings if empty
     const settingsCount = db.prepare('SELECT COUNT(*) as count FROM sms_settings').get().count;
@@ -160,6 +168,119 @@ function initDB() {
             sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+}
+
+// --- PDF Generation Helper ---
+function generateReceiptPDF(data, logoPath) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({ size: 'A5', margin: 40 });
+            const buffers = [];
+
+            doc.on('data', buffers.push.bind(buffers));
+            doc.on('end', () => resolve(Buffer.concat(buffers)));
+            doc.on('error', (err) => reject(err));
+
+            // Header - Logo
+            if (fs.existsSync(logoPath)) {
+                const logoWidth = 40;
+                const logoX = (doc.page.width - logoWidth) / 2;
+                doc.image(logoPath, logoX, 30, { width: logoWidth });
+            }
+
+            // Header - Company Name
+            doc.font('Helvetica-Bold')
+                .fontSize(18)
+                .fillColor('#FF0000') // Brand Red
+                .text('SL Dream Japan', 0, 80, { align: 'center', width: doc.page.width });
+
+            doc.fontSize(10)
+                .fillColor('#666666')
+                .text('Institute of Japanese Language', 0, 105, { align: 'center', width: doc.page.width });
+
+            doc.moveDown();
+
+            // Receipt Box
+            const startY = 140; // Adjusted starting Y to account for logo and text
+            doc.rect(40, startY, 340, 160).stroke('#eeeeee');
+
+            let currentY = startY + 20;
+            const drawRow = (label, value, isBold = false) => {
+                doc.fontSize(10).fillColor('#888888').text(label, 60, currentY);
+                doc.font(isBold ? 'Helvetica-Bold' : 'Helvetica')
+                    .fillColor('#333333')
+                    .text(value, 160, currentY);
+                currentY += 25;
+            };
+
+            drawRow('Receipt No:', data.receiptNo, true);
+            drawRow('Date:', data.date);
+            drawRow('Student Name:', data.studentName);
+            drawRow('Course/Class:', data.course);
+
+            // Amount Highlight
+            doc.rect(40, currentY + 10, 340, 40).fill('#f8fafc');
+            doc.fontSize(12).fillColor('#666666').text('Total Paid', 60, currentY + 22);
+            doc.fontSize(16).fillColor('#0d9488').font('Helvetica-Bold').text(`LKR ${data.amount.toLocaleString()}`, 160, currentY + 18);
+
+            // Footer
+            const footerY = currentY + 100;
+            doc.fontSize(8)
+                .fillColor('#aaaaaa')
+                .text('This is a computer generated receipt.', 0, footerY, { align: 'center', width: doc.page.width });
+            doc.text('Thank you for learning with SL Dream Japan.', 0, footerY + 12, { align: 'center', width: doc.page.width });
+
+            doc.end();
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// --- SMS Config Persistence Helpers ---
+
+function loadSmsConfig() {
+    try {
+        if (fs.existsSync(smsConfigPath)) {
+            const data = fs.readFileSync(smsConfigPath, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        console.error("Failed to load SMS config from JSON:", e);
+    }
+
+    // Fallback: Try to migrate from DB if JSON doesn't exist
+    try {
+        const row = db.prepare('SELECT * FROM sms_settings LIMIT 1').get();
+        if (row) {
+            console.log("Migrating SMS settings from DB to JSON...");
+            saveSmsConfig(row);
+            return row;
+        }
+    } catch (e) {
+        // DB might not have the table yet or error
+    }
+
+    // Default Config
+    return {
+        provider: 'DefaultGateway',
+        apiKey: '',
+        senderId: 'SLDJ',
+        adminPhone: '',
+        reminderDate: 7,
+        reminderTime: '09:00',
+        enabled: true
+    };
+}
+
+function saveSmsConfig(config) {
+    try {
+        fs.writeFileSync(smsConfigPath, JSON.stringify(config, null, 2), 'utf-8');
+        return true;
+    } catch (e) {
+        console.error("Failed to save SMS config to JSON:", e);
+        return false;
+    }
 }
 
 initDB();
@@ -331,7 +452,7 @@ app.whenReady().then(() => {
 
             // --- SMS TRIGGER: Registration Welcome ---
             try {
-                const settings = db.prepare('SELECT * FROM sms_settings').get();
+                const settings = loadSmsConfig();
                 if (settings && settings.enabled) {
                     const message = `SL Dream Japan වෙත ලියාපදිංචි වූ ඔබට ස්තුතියි. ඔබගේ අධ්‍යාපනික හා වෘත්තීය අනාගතයට සාර්ථකත්වය ප්‍රාර්ථනා කරමු.`;
                     if (studentToSave.phone) {
@@ -385,8 +506,11 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('delete-student', (event, regNum) => {
-        const stmt = db.prepare('DELETE FROM students WHERE regNum = ?');
-        stmt.run(regNum);
+        const deleteTransaction = db.transaction((id) => {
+            db.prepare('DELETE FROM payments WHERE regNum = ?').run(id);
+            db.prepare('DELETE FROM students WHERE regNum = ?').run(id);
+        });
+        deleteTransaction(regNum);
         return regNum;
     });
 
@@ -670,15 +794,43 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Email ---
-    ipcMain.handle('send-receipt-email', async (event, { email, studentName, amount, date, receiptNo, course }) => {
-        // Configure Transporter (PLACEHOLDERS - User must update these)
+    // --- IPC Handlers for Email ---
+    ipcMain.handle('send-receipt-email', async (event, emailData) => {
+        // Return IMMEDIATELY to unblock UI
+        // Process in background
+        processEmailInBackground(emailData).catch(err => {
+            console.error("Background Email Failed:", err);
+        });
+
+        return { success: true, queued: true };
+    });
+
+    // Helper for background email sending
+    async function processEmailInBackground(data) {
+        const { email, studentName, amount, date, receiptNo, course } = data;
+
+        // Configure Transporter
         const transporter = nodemailer.createTransport({
-            service: 'gmail', // or your SMTP provider
+            service: 'gmail',
             auth: {
-                user: 'bhanuabeysinghe244@gmail.com', // Replace with real email
-                pass: 'onbn vtfu xoxz mkom'     // Replace with real app password
+                user: 'bhanuabeysinghe244@gmail.com',
+                pass: 'onbn vtfu xoxz mkom'
             }
         });
+
+        const logoPath = join(__dirname, '../src/assets/SLDJ_PNG.png');
+
+        // Generate PDF
+        let pdfBuffer = null;
+        try {
+            console.log("Generating PDF Receipt...");
+            pdfBuffer = await generateReceiptPDF(data, logoPath);
+        } catch (pdfErr) {
+            console.error("PDF Generation Failed:", pdfErr);
+            // Continue without PDF if fails? Or stop? 
+            // Better to send email without PDF than nothing, or maybe critical fail?
+            // Let's attach if successful.
+        }
 
         // HTML Template
         const htmlContent = `
@@ -691,26 +843,20 @@ app.whenReady().then(() => {
                 
                 <div style="padding: 20px;">
                     <p>Dear <strong>${studentName}</strong>,</p>
-                    <p>Thank you for your payment. Here are the details of your transaction:</p>
+                    <p>Thank you for your payment. Please find the official receipt attached to this email.</p>
                     
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px 0; color: #64748b;">Receipt No</td>
-                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${receiptNo}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px 0; color: #64748b;">Date</td>
-                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${date}</td>
-                        </tr>
-                         <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px 0; color: #64748b;">Course/Class</td>
-                            <td style="padding: 10px 0; text-align: right; font-weight: bold;">${course}</td>
-                        </tr>
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 10px 0; color: #64748b;">Amount Paid</td>
-                            <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #0d9488;">LKR ${amount}</td>
-                        </tr>
-                    </table>
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                         <p style="margin: 0; color: #166534; font-size: 18px; font-weight: bold; text-align: center;">
+                            Paid: LKR ${amount}
+                         </p>
+                    </div>
+
+                    <p style="color: #64748b; font-size: 14px;">Transaction Details:</p>
+                    <ul style="color: #475569; font-size: 14px;">
+                        <li>Receipt No: <strong>${receiptNo}</strong></li>
+                        <li>Date: ${date}</li>
+                        <li>Course: ${course}</li>
+                    </ul>
 
                     <div style="margin-top: 30px; text-align: center; color: #94a3b8; font-size: 12px;">
                         <p>This is an automated message. Please do not reply to this email.</p>
@@ -720,49 +866,59 @@ app.whenReady().then(() => {
             </div>
         `;
 
-        const logoPath = join(__dirname, '../src/assets/SLDJ_PNG.png');
-
         try {
-            await transporter.sendMail({
+            const mailOptions = {
                 from: '"SL Dream Japan" <noreply@sldreamjapan.com>',
                 to: email,
                 subject: `Payment Receipt - ${receiptNo}`,
                 html: htmlContent,
-                attachments: [{
-                    filename: 'SLDJ_PNG.png',
-                    path: logoPath,
-                    cid: 'logo' // same cid value as in the html img src
-                }]
-            });
+                attachments: [
+                    {
+                        filename: 'SLDJ_PNG.png',
+                        path: logoPath,
+                        cid: 'logo'
+                    }
+                ]
+            };
+
+            // Attach PDF if generated
+            if (pdfBuffer) {
+                mailOptions.attachments.push({
+                    filename: `Receipt-${receiptNo}.pdf`,
+                    content: pdfBuffer
+                });
+            }
+
+            await transporter.sendMail(mailOptions);
+            console.log(`Email sent successfully to ${email}`);
             return { success: true };
         } catch (error) {
             console.error("Failed to send email:", error);
             throw error;
         }
-    });
+    }
 
 
     // --- IPC Handlers for SMS ---
     ipcMain.handle('get-sms-config', () => {
-        return db.prepare('SELECT * FROM sms_settings').get();
+        return loadSmsConfig();
     });
 
     ipcMain.handle('save-sms-config', (event, config) => {
-        const stmt = db.prepare(`
-            UPDATE sms_settings 
-            SET provider = @provider, apiKey = @apiKey, senderId = @senderId, enabled = @enabled, adminPhone = @adminPhone, updated_at = CURRENT_TIMESTAMP
-            WHERE id = (SELECT id FROM sms_settings LIMIT 1)
-        `);
-        stmt.run(config);
+        saveSmsConfig(config);
+        setupScheduler(); // Restart scheduler with new settings
         return config;
     });
 
-
+    ipcMain.handle('trigger-payment-reminders', async () => {
+        console.log("[MANUAL TRIGGER] Starting payment reminder check...");
+        return await checkAndSendReminders(true);
+    });
 
     // --- IPC Handlers for 2FA OTP ---
     ipcMain.handle('send-2fa-otp', async (event, { phone }) => {
         // 1. Get Settings
-        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        const settings = loadSmsConfig();
         if (!settings || !settings.enabled) {
             return { success: false, error: "SMS Service Disabled" };
         }
@@ -825,7 +981,7 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('get-sms-balance', async () => {
-        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        const settings = loadSmsConfig();
         if (!settings) return { success: false, error: "No settings found" };
 
         // If mocked or invalid key, return placeholder. allow case-insensitive 'text.lk'
@@ -838,7 +994,7 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('send-manual-sms', async (event, { recipients, message }) => {
-        const settings = db.prepare('SELECT * FROM sms_settings').get();
+        const settings = loadSmsConfig();
         if (!settings || !settings.enabled) {
             throw new Error("SMS service is disabled in settings.");
         }
@@ -869,58 +1025,103 @@ app.whenReady().then(() => {
         return db.prepare('SELECT * FROM sms_logs ORDER BY sent_at DESC LIMIT 5').all();
     });
 
-    // --- AUTOMATED SCHEDULER ---
-    // Run daily at 9:00 AM
-    cron.schedule('0 9 * * *', async () => {
-        console.log("[SCHEDULER] Running daily check...");
+    // --- AUTOMATED SCHEDULER LOGIC ---
+    let scheduledTask = null;
+
+    async function checkAndSendReminders(isManual = false) {
+        console.log(`[REMINDER] Starting check. Manual: ${isManual}`);
         const now = new Date();
         const day = now.getDate();
+        const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-        // Reminder logic: "before 10th of the months"
-        // Let's send on the 7th as a reminder.
-        if (day === 7) {
-            console.log("[SCHEDULER] It's the 7th! Checking for pending payments...");
-            const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        // 1. Get settings
+        const settings = loadSmsConfig();
+        if (!settings || !settings.enabled) {
+            console.log("[REMINDER] SMS Disabled. Skipping.");
+            return { success: false, message: "SMS Disabled" };
+        }
 
-            // 1. Get settings
-            const settings = db.prepare('SELECT * FROM sms_settings').get();
-            if (!settings || !settings.enabled) return;
+        // 2. Check Date (Skip if manual)
+        const targetDate = settings.reminderDate || 7; // Default 7th
+        if (!isManual && day !== targetDate) {
+            console.log(`[REMINDER] Today is ${day}, target is ${targetDate}. Skipping.`);
+            return { success: true, message: "Not date yet" };
+        }
 
-            // 2. Find students who haven't paid logic (simplified version of pending calculation)
-            const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
-            const paidMap = {};
-            payments.forEach(p => {
-                if (!paidMap[p.regNum]) paidMap[p.regNum] = new Set();
-                if (p.class) paidMap[p.regNum].add(p.class);
-            });
+        // 3. Find unpaid students
+        const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+        const paidMap = {};
+        payments.forEach(p => {
+            if (!paidMap[p.regNum]) paidMap[p.regNum] = new Set();
+            if (p.class) paidMap[p.regNum].add(p.class);
+        });
 
-            const students = db.prepare('SELECT regNum, phone, name, class FROM students').all();
+        const students = db.prepare('SELECT regNum, phone, name, class FROM students').all();
+        let sentCount = 0;
+        let failCount = 0;
 
-            for (const s of students) {
-                if (!s.phone) continue;
+        for (const s of students) {
+            if (!s.phone) continue;
 
-                let classes = [];
-                try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
-                if (!Array.isArray(classes)) classes = [s.class];
+            let classes = [];
+            try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
+            if (!Array.isArray(classes)) classes = [s.class];
 
-                // Check pending
-                const pendingClasses = classes.filter(cls => !paidMap[s.regNum]?.has(cls));
+            // Check pending
+            const pendingClasses = classes.filter(cls => !paidMap[s.regNum]?.has(cls));
 
-                if (pendingClasses.length > 0) {
-                    // Send reminder
-                    const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න./n— SL Dream Japan`;
+            if (pendingClasses.length > 0) {
+                // Send reminder
+                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
 
-                    try {
-                        const res = await smsService.sendSMS(s.phone, message, settings);
-                        // Log (optional for scheduler?)
-                        console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success}`);
-                    } catch (e) {
-                        console.error(`Failed to send reminder to ${s.phone}`, e);
-                    }
+                try {
+                    const res = await smsService.sendSMS(s.phone, message, settings);
+                    console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success}`);
+
+                    db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
+                        s.phone, message, res.success ? 'sent' : 'failed'
+                    );
+
+                    if (res.success) sentCount++; else failCount++;
+                } catch (e) {
+                    console.error(`Failed to send reminder to ${s.phone}`, e);
+                    failCount++;
                 }
             }
         }
-    });
+
+        return { success: true, sent: sentCount, failed: failCount };
+    }
+
+    function setupScheduler() {
+        // Stop existing
+        if (scheduledTask) {
+            scheduledTask.stop();
+            scheduledTask = null;
+        }
+
+        const settings = loadSmsConfig();
+        if (!settings || !settings.enabled) {
+            console.log("[SCHEDULER] SMS Disabled. Scheduler not started.");
+            return;
+        }
+
+        const time = settings.reminderTime || '09:00';
+        const [hour, minute] = time.split(':');
+
+        // Cron Format: Minute Hour * * *
+        const cronExpression = `${minute || 0} ${hour || 9} * * *`;
+
+        console.log(`[SCHEDULER] Starting with schedule: ${cronExpression} (Date: ${settings.reminderDate || 7})`);
+
+        scheduledTask = cron.schedule(cronExpression, async () => {
+            console.log("[SCHEDULER] Triggered by cron.");
+            await checkAndSendReminders(false);
+        });
+    }
+
+    // Initialize Scheduler
+    setupScheduler();
 });
 
 console.log("App ready.");

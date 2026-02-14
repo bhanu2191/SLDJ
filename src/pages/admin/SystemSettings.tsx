@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, RefreshCw } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw, Bell, Play } from 'lucide-react';
 
 interface ClassCategory {
     id: number | string;
@@ -19,8 +19,32 @@ export const SystemSettings = () => {
         provider: 'DefaultGateway',
         apiKey: '',
         senderId: 'SLDJ',
+        adminPhone: '',
+        reminderDate: 7,
+        reminderTime: '09:00',
         enabled: true
     });
+
+    const [reminderRunning, setReminderRunning] = useState(false);
+
+    const handleRunReminders = async () => {
+        if (!confirm("Are you sure you want to run the payment reminder check now? This will send SMS to all unpaid students.")) return;
+
+        setReminderRunning(true);
+        try {
+            const result = await window.electronAPI.triggerPaymentReminders();
+            if (result.success) {
+                alert(`Reminder Check Completed.\nSent: ${result.sent}\nFailed: ${result.failed}`);
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (error) {
+            console.error("Failed to run reminders:", error);
+            alert("Failed to run reminders.");
+        } finally {
+            setReminderRunning(false);
+        }
+    };
     const [smsSaving, setSmsSaving] = useState(false);
     const [smsBalance, setSmsBalance] = useState<string | number | null>(null);
 
@@ -222,19 +246,20 @@ export const SystemSettings = () => {
                         <p className="text-sm text-gray-500">Configure your Text.lk or generic SMS provider settings.</p>
                     </div>
                     {smsBalance !== null && (
-                        <div className="text-right bg-green-50 px-4 py-2 rounded-lg border border-green-100 relative group flex items-center gap-4">
-                            <div>
-                                <span className="block text-xs text-green-600 uppercase tracking-wider font-bold">Available Balance</span>
-                                <span className="text-2xl font-extrabold text-green-700">
-                                    {smsBalance} <span className="text-sm font-medium">SMS</span>
+                        <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
+                            <div className="flex flex-col items-end">
+                                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wide leading-tight">Balance</span>
+                                <span className="text-sm font-bold text-gray-800 leading-tight">
+                                    {smsBalance} <span className="text-xs text-gray-500 font-normal">SMS</span>
                                 </span>
                             </div>
+                            <div className="h-6 w-[1px] bg-gray-200 mx-1"></div>
                             <button
                                 onClick={loadBalance}
                                 title="Refresh Balance"
-                                className="bg-white text-green-600 rounded-full p-2 shadow-sm border border-green-200 hover:bg-green-600 hover:text-white transition-all"
+                                className="text-gray-400 hover:text-primary transition-colors p-1 rounded-full hover:bg-gray-100"
                             >
-                                <RefreshCw size={18} />
+                                <RefreshCw size={14} />
                             </button>
                         </div>
                     )}
@@ -287,6 +312,69 @@ export const SystemSettings = () => {
                         className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
                         <Save size={18} />
                         {smsSaving ? 'Saving...' : 'Update Configuration'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Automated Reminders Settings */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <Bell size={20} className="text-primary" />
+                            Automated Payment Reminders
+                        </h2>
+                        <p className="text-sm text-gray-500">Configure when the system automatically sends payment reminders.</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Date (Monthly)</label>
+                        <select
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+                            value={smsSettings.reminderDate || 7}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, reminderDate: Number(e.target.value) })}
+                        >
+                            {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
+                                <option key={day} value={day}>{day}th of the month</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">System checks for pending payments on this day.</p>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Check Time</label>
+                        <input
+                            type="time"
+                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
+                            value={smsSettings.reminderTime || '09:00'}
+                            onChange={(e) => setSmsSettings({ ...smsSettings, reminderTime: e.target.value })}
+                        />
+                    </div>
+                </div>
+
+                <div className="mt-6 flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                    <div>
+                        <h3 className="text-sm font-semibold text-yellow-800">Manual Trigger</h3>
+                        <p className="text-xs text-yellow-700 mt-1">Run the reminder check immediately (bypasses date check).</p>
+                    </div>
+                    <button
+                        onClick={handleRunReminders}
+                        disabled={reminderRunning}
+                        className="bg-white border border-yellow-300 text-yellow-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-yellow-100 transition-colors disabled:opacity-50 font-medium shadow-sm"
+                    >
+                        <Play size={16} />
+                        {reminderRunning ? 'Running...' : 'Run Reminders Now'}
+                    </button>
+                </div>
+
+                <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
+                    <button
+                        onClick={handleSaveSmsSettings}
+                        disabled={smsSaving}
+                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
+                        <Save size={18} />
+                        {smsSaving ? 'Saving...' : 'Update Schedule'}
                     </button>
                 </div>
             </div>

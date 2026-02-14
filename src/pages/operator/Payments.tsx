@@ -225,8 +225,12 @@ export const Payments = () => {
                         message: smsMessage
                     });
                     console.log("Payment SMS sent successfully");
-                } catch (smsErr) {
-                    console.error("Payment SMS failed", smsErr);
+                } catch (smsErr: any) {
+                    if (smsErr.message && smsErr.message.includes('disabled')) {
+                        console.log("SMS skipped (service disabled)");
+                    } else {
+                        console.error("Payment SMS failed", smsErr);
+                    }
                 }
             }
 

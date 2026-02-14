@@ -43,6 +43,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendManualSms: (data) => ipcRenderer.invoke('send-manual-sms', data),
     getSmsLogs: () => ipcRenderer.invoke('get-sms-logs'),
 
+    // Payment Reminders
+    triggerPaymentReminders: () => ipcRenderer.invoke('trigger-payment-reminders'),
+
     // 2FA Authentication
     sendOtp: (phone) => ipcRenderer.invoke('send-2fa-otp', { phone }),
     verifyOtp: (code) => ipcRenderer.invoke('verify-2fa-otp', code),

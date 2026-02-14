@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { getStoredStudents } from '../../lib/storage';
 import { useAuth } from '../../context/AuthContext';
 
+import { BulkImport } from './BulkImport';
+
 interface Student {
     // id removed
     regNum: string;
@@ -34,23 +36,24 @@ export function AdminStudentTable() {
     const currentDate = new Date();
     const isLate = currentDate.getDate() > 10; // Logic for late payment highlight
 
-    useEffect(() => {
-        const loadStudents = async () => {
-            const stored = await getStoredStudents();
-            const allStudents = [...stored, ...mockStudents];
-            setStudents(allStudents);
+    const loadStudents = async () => {
+        const stored = await getStoredStudents();
+        const allStudents = [...stored, ...mockStudents];
+        setStudents(allStudents);
 
-            // Extract unique classes
-            const classes = new Set<string>();
-            allStudents.forEach(s => {
-                if (Array.isArray(s.class)) {
-                    s.class.forEach(c => classes.add(c));
-                } else if (s.class) {
-                    classes.add(s.class);
-                }
-            });
-            setAvailableClasses(Array.from(classes).sort());
-        };
+        // Extract unique classes
+        const classes = new Set<string>();
+        allStudents.forEach(s => {
+            if (Array.isArray(s.class)) {
+                s.class.forEach(c => classes.add(c));
+            } else if (s.class) {
+                classes.add(s.class);
+            }
+        });
+        setAvailableClasses(Array.from(classes).sort());
+    };
+
+    useEffect(() => {
         loadStudents();
     }, []);
 
@@ -110,6 +113,8 @@ export function AdminStudentTable() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                    <BulkImport onImportComplete={loadStudents} />
+                    <div className="h-6 w-[1px] bg-slate-200 mx-1" />
                     <select
                         value={filterClass}
                         onChange={(e) => setFilterClass(e.target.value)}
