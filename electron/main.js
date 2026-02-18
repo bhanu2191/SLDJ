@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, dialog } from 'electron';
 
 // Disable Autofill to prevent "Request Autofill.enable failed" errors
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication,AutofillAddressEnabled,PasswordManager,AutofillCreditCardEnabled');
@@ -36,13 +36,46 @@ const __dirname = dirname(__filename);
 const fs = require('fs');
 
 // Ensure data directory exists
-const dataDir = join(__dirname, '../data');
+// Ensure data directory exists in User Data folder (Roaming/AppData)
+const dataDir = join(app.getPath('userData'), 'data');
 if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir);
+    fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const smsConfigPath = join(dataDir, 'sms_config.json');
 const dbPath = join(dataDir, 'school.db');
+
+// --- Database Migration / Initialization ---
+try {
+    if (!fs.existsSync(dbPath)) {
+        console.log("Database not found in UserData, checking for existing data to migrate...");
+
+        // 1. Check for database in the source/resources folder (packaged app)
+        // In electron-builder, extraResources or files can be unpacked. 
+        // Or checks if we are running from source.
+        const possibleOldPaths = [
+            join(__dirname, '../data/school.db'), // Dev environment
+            join(process.resourcesPath, 'data/school.db'), // Packaged resource
+            join(app.getAppPath(), '../data/school.db') // Another variation
+        ];
+
+        let found = false;
+        for (const oldPath of possibleOldPaths) {
+            if (fs.existsSync(oldPath)) {
+                console.log(`Migrating database from: ${oldPath}`);
+                fs.copyFileSync(oldPath, dbPath);
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            console.log("No existing database found. A new one will be created.");
+        }
+    }
+} catch (e) {
+    console.error("Migration error:", e);
+}
 const db = new Database(dbPath);
 
 // Initialize Database
@@ -319,6 +352,13 @@ const createWindow = () => {
 
 app.whenReady().then(() => {
     createWindow();
+
+    // Toggle DevTools with F12 in production
+    globalShortcut.register('F12', () => {
+        if (mainWindow) {
+            mainWindow.webContents.toggleDevTools();
+        }
+    });
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
@@ -813,8 +853,8 @@ app.whenReady().then(() => {
         const transporter = nodemailer.createTransport({
             service: 'gmail',
             auth: {
-                user: 'bhanuabeysinghe244@gmail.com',
-                pass: 'onbn vtfu xoxz mkom'
+                user: 'dreamjapanmatara@gmail.com',
+                pass: 'yjoh jllo mdmt cpyj'
             }
         });
 
@@ -944,6 +984,20 @@ app.whenReady().then(() => {
             // Force Sender ID to 'SLDJ' for OTP to prevent lockout if DB has invalid 'TextLKDemo'
             // Use 'Notify' as a common fallback if SLDJ isn't registered, but let's try SLDJ first matching the brand.
             const otpSettings = { ...settings, senderId: 'SLDJ' };
+
+            // Check if we are in Mock Mode (No API Key or Default Provider)
+            const isMock = !settings.apiKey || (settings.provider && settings.provider.toLowerCase() !== 'text.lk');
+
+            if (isMock) {
+                // Show Dialog with Code so User isn't locked out
+                dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: 'Developer/Mock OTP',
+                    message: `Your Login Code: ${code}`,
+                    detail: 'SMS Gateway is not configured. Use this code to login and configure SMS settings.',
+                    buttons: ['OK']
+                });
+            }
 
             const res = await smsService.sendSMS(targetPhone, message, otpSettings);
 

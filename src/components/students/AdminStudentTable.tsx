@@ -174,7 +174,11 @@ export function AdminStudentTable() {
                                         <div className="flex items-center gap-3">
                                             <div className="h-10 w-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-400 group-hover:ring-2 group-hover:ring-primary/20 transition-all">
                                                 {student.avatar ? (
-                                                    <img src={student.avatar} alt={student.name} className="h-full w-full object-cover" />
+                                                    <img
+                                                        src={student.avatar?.startsWith('/') ? student.avatar.slice(1) : student.avatar}
+                                                        alt={student.name}
+                                                        className="h-full w-full object-cover"
+                                                    />
                                                 ) : (
                                                     <User className="h-5 w-5" />
                                                 )}

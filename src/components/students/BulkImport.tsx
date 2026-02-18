@@ -1,7 +1,7 @@
 
 import { useState, useRef } from 'react';
 import ExcelJS from 'exceljs';
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { saveStudent } from '../../lib/storage';
 import { commitNextStudentId } from '../../lib/idGenerator';
 import Swal from 'sweetalert2';
@@ -112,7 +112,7 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
                     if (genderRaw.toLowerCase().includes('f') || genderRaw.toLowerCase().includes('girl')) gender = 'female';
 
                     // Determine Avatar
-                    const avatar = gender === 'male' ? '/boy.png' : '/girl.png';
+                    const avatar = gender === 'male' ? 'boy.png' : 'girl.png';
 
                     // Parse Classes (comma separated or single)
                     const classes = className.split(',').map(c => c.trim()).filter(c => c);

@@ -27,3 +27,8 @@ dist-ssr
 *.db
 *.db-shm
 *.db-wal
+
+# Build Output
+dist_electron/
+dist/
+release/

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, CreditCard, Ban, Calendar, TrendingUp, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { CreditCard, Ban, Calendar, TrendingUp, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { PaymentReportModal } from '../../components/reports/PaymentReportModal';
 
 

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { Login } from './pages/Login';
 import { AdminLayout } from './layouts/AdminLayout';
@@ -21,7 +21,7 @@ import { AdminStudentList } from './pages/admin/StudentList';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -52,7 +52,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

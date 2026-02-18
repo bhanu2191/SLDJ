@@ -241,8 +241,8 @@ export function Registration() {
             // Determine avatar based on gender
             // Using local images from public directory
             const avatarUrl = formData.gender === 'male'
-                ? '/boy.png'
-                : '/girl.png';
+                ? 'boy.png'
+                : 'girl.png';
 
             await saveStudent({
                 regNum: finalId,

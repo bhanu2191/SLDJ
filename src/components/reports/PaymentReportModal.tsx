@@ -132,7 +132,7 @@ export function PaymentReportModal({ isOpen, onClose, payments }: PaymentReportM
 
             // 5. Add Data
             let totalAmount = 0;
-            const dataStartRow = tableStartRow + 1;
+            // dataStartRow removed as it was unused
 
             filtered.forEach((p, index) => {
                 const row = worksheet.addRow([
