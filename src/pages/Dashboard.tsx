@@ -1,84 +1,65 @@
-import { Users, CreditCard, Wallet, Calendar, Loader2 } from 'lucide-react';
-import { StatCard } from '../components/dashboard/StatCard';
-import { RevenueChart } from '../components/dashboard/RevenueChart';
-import { ActivityFeed } from '../components/dashboard/ActivityFeed';
-import { useEffect, useState } from 'react';
+import { StatCard } from '@/components/dashboard/StatCard';
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { RevenueChart } from '@/components/dashboard/RevenueChart';
+import { Users, GraduationCap, CreditCard, TrendingUp } from 'lucide-react';
 
 export function Dashboard() {
-    const [stats, setStats] = useState({ totalStudents: 0, monthlyRevenue: 0, pendingPayments: 0 });
-    const [revenueData, setRevenueData] = useState<any[]>([]);
-    const [activities, setActivities] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const loadDashboardData = async () => {
-            try {
-                const [dashboardStats, chartData, recentActivity] = await Promise.all([
-                    window.electronAPI.getDashboardStats(),
-                    window.electronAPI.getRevenueChart(),
-                    window.electronAPI.getRecentActivity()
-                ]);
-
-                setStats(dashboardStats);
-                setRevenueData(chartData);
-                setActivities(recentActivity);
-            } catch (error) {
-                console.error("Failed to load dashboard data", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadDashboardData();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="flex h-96 items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
-    }
-
     return (
-        <div className="space-y-6">
-            {/* Metric Cards Row */}
+        <div className="space-y-8">
+            {/* Header Section */}
+            <div>
+                <h2 className="text-3xl font-display font-bold text-slate-900 dark:text-white">Dashboard</h2>
+                <p className="text-slate-500 mt-1 dark:text-slate-400">Overview of your institute's performance.</p>
+            </div>
+
+            {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
-                    title="Total Active Students"
-                    value={stats.totalStudents.toLocaleString()}
-                    icon={Users}
-                    iconColorClass="bg-primary/10 text-primary"
-                />
-                <StatCard
-                    title="Payments Pending"
-                    value={stats.pendingPayments.toLocaleString()}
+                    title="Total Revenue"
+                    value="LKR 4.2M"
+                    description="+12% from last month"
                     icon={CreditCard}
-                    iconColorClass="bg-status-warning/10 text-status-warning"
-                    subtext="Current Month"
+                    variant="premium"
+                    trend="up"
+                    trendValue="12%"
                 />
                 <StatCard
-                    title="Month's Revenue"
-                    value={`Rs. ${(stats.monthlyRevenue / 1000000).toFixed(1)}M`}
-                    icon={Wallet}
-                    iconColorClass="bg-status-success/10 text-status-success"
+                    title="Active Students"
+                    value="1,240"
+                    description="+40 new this week"
+                    icon={Users}
+                    variant="default"
+                    trend="up"
+                    trendValue="3.2%"
                 />
                 <StatCard
-                    title="Upcoming Exam"
-                    value="45 Days"
-                    icon={Calendar}
-                    iconColorClass="bg-accent/10 text-accent"
-                    subtext="JLPT July Exam"
+                    title="Course Enrollments"
+                    value="856"
+                    description="Across 12 batches"
+                    icon={GraduationCap}
+                    variant="default"
+                    trend="neutral"
+                    trendValue="0%"
+                />
+                <StatCard
+                    title="Pass Rate"
+                    value="94%"
+                    description="JLPT & NAT Exams"
+                    icon={TrendingUp}
+                    variant="default"
+                    trend="up"
+                    trendValue="5%"
                 />
             </div>
 
-            {/* Main Content Split */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <RevenueChart data={revenueData} />
-                </div>
-                <div className="lg:col-span-1">
-                    <ActivityFeed activities={activities} />
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                {/* Chart Section */}
+                <RevenueChart />
+
+                {/* Activity Feed */}
+                <div className="col-span-1">
+                    <ActivityFeed />
                 </div>
             </div>
         </div>

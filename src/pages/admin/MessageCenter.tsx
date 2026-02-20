@@ -1,8 +1,16 @@
-
 import { useState, useEffect } from 'react';
-import { Send, Users, AlertCircle, MessageSquare, Clock, Smartphone, CheckCircle, XCircle } from 'lucide-react';
+import { Send, Users, AlertCircle, MessageSquare, Clock, Smartphone, RefreshCw } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+
+// Shadcn Components
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 interface ClassCategory {
     id: number | string;
@@ -107,6 +115,7 @@ export const MessageCenter = () => {
             setSending(true);
             try {
                 const recipients = targets.map(s => s.phone);
+                // @ts-ignore
                 const res = await window.electronAPI.sendManualSms({ recipients, message });
 
                 await Swal.fire({
@@ -134,139 +143,144 @@ export const MessageCenter = () => {
             {/* Left Panel: Composer (60%) */}
             <div className="flex-1 flex flex-col space-y-6 h-full overflow-y-auto pr-2">
                 <div className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2 tracking-tight dark:text-white">
                         <MessageSquare className="h-6 w-6 text-primary" />
                         New Campaign
                     </h1>
-                    <p className="text-gray-500">Send bulk SMS notifications to your students.</p>
+                    <p className="text-slate-500 dark:text-slate-400">Send bulk SMS notifications to your students.</p>
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col flex-grow">
-                    {/* Audience Section */}
-                    <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-                        <div className="flex flex-col sm:flex-row gap-4 items-end">
-                            <div className="flex-1 w-full">
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Target Audience</label>
-                                <select
-                                    className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-sm shadow-sm"
-                                    value={selectedCategory}
-                                    onChange={(e) => setSelectedCategory(e.target.value)}
-                                >
-                                    <option value="all">All Students</option>
-                                    <optgroup label="By Class">
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
-                                        ))}
-                                    </optgroup>
-                                </select>
+                <Card className="flex flex-col flex-grow shadow-sm border-slate-200 dark:border-slate-800">
+                    <CardHeader className="pb-4 border-b border-slate-100 bg-slate-50/50 dark:bg-slate-900 dark:border-slate-800">
+                        <div className="flex flex-col sm:flex-row gap-6 items-end">
+                            <div className="flex-1 w-full space-y-2">
+                                <Label>Target Audience</Label>
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                                    <SelectTrigger className="bg-white dark:bg-slate-950 dark:border-slate-800">
+                                        <SelectValue placeholder="Select audience" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Students</SelectItem>
+                                        <SelectGroup>
+                                            <SelectLabel>By Class</SelectLabel>
+                                            {categories.map(cat => (
+                                                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <div className="bg-indigo-50 px-5 py-2.5 rounded-lg border border-indigo-100 flex items-center gap-4 h-[44px]">
-                                <div className="bg-white p-1.5 rounded-md shadow-sm text-indigo-600">
-                                    <Users size={16} />
+
+                            <div className="flex items-center gap-4 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-lg dark:bg-indigo-950/30 dark:border-indigo-900/50">
+                                <div className="p-2 bg-white rounded-md shadow-sm text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300">
+                                    <Users size={18} />
                                 </div>
-                                <div className="flex flex-col justify-center">
-                                    <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider leading-none mb-0.5">Recipients</div>
-                                    <div className="text-lg font-black text-indigo-900 leading-none">{stats.selected}</div>
+                                <div>
+                                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider dark:text-indigo-300">Recipients</p>
+                                    <p className="text-xl font-black text-indigo-900 leading-none dark:text-indigo-100">{stats.selected}</p>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </CardHeader>
 
-                    {/* Editor Section */}
-                    <div className="p-6 flex flex-col flex-grow">
-                        <label className="block text-sm font-semibold text-gray-700 mb-2 flex justify-between">
-                            Message Content
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isLongMessage ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                    <CardContent className="flex-grow flex flex-col p-6 space-y-4">
+                        <div className="flex justify-between items-center">
+                            <Label>Message Content</Label>
+                            <Badge variant={isLongMessage ? "destructive" : "secondary"} className="text-[10px]">
                                 {segmentCount} SMS credit(s) per recipient
-                            </span>
-                        </label>
+                            </Badge>
+                        </div>
+
                         <div className="relative flex-grow flex flex-col">
-                            <textarea
-                                className="w-full flex-grow p-4 bg-gray-50 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-sm leading-relaxed"
+                            <Textarea
+                                className="flex-grow min-h-[200px] resize-none text-base leading-relaxed bg-slate-50 focus:bg-white transition-colors dark:bg-slate-950 dark:focus:bg-slate-900 dark:border-slate-800 dark:text-slate-100"
                                 placeholder="Type your message here..."
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
-                            // maxLength={160 * 3} // Optional limit
-                            ></textarea>
-                            <div className="absolute bottom-3 right-3 flex items-center gap-3">
-                                <div className={`text-xs font-medium px-2 py-1 rounded-md border shadow-sm ${charCount > 160 ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-white text-gray-500 border-gray-200'}`}>
+                            />
+                            <div className="absolute bottom-3 right-3">
+                                <span className={cn(
+                                    "text-xs font-medium px-2 py-1 rounded-md border shadow-sm",
+                                    charCount > 160
+                                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                                        : "bg-white text-slate-500 border-slate-200"
+                                )}>
                                     {charCount} chars
-                                </div>
+                                </span>
                             </div>
                         </div>
-                    </div>
+                    </CardContent>
 
-                    {/* Footer Action */}
-                    <div className="p-6 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
-                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <CardFooter className="bg-slate-50 border-t border-slate-100 p-6 flex justify-between items-center dark:bg-slate-900 dark:border-slate-800">
+                        <div className="text-xs text-slate-500 flex items-center gap-2 dark:text-slate-400">
                             <AlertCircle size={14} />
-                            <span>Estimated Total Credits: <b>{segmentCount * stats.selected}</b></span>
+                            <span>Total Estimated Credits: <b className="text-slate-900 dark:text-slate-200">{segmentCount * stats.selected}</b></span>
                         </div>
-                        <button
+                        <Button
                             onClick={handleSend}
                             disabled={sending || stats.selected === 0 || !message.trim()}
-                            className="bg-primary text-white px-8 py-2.5 rounded-lg font-medium shadow-md shadow-primary/20 hover:bg-primary-dark transition-all flex items-center gap-2 disabled:opacity-50 disabled:shadow-none"
+                            className="gap-2 shadow-lg shadow-primary/20"
+                            size="lg"
                         >
-                            {sending ? 'Sending...' : <><Send size={16} /> Send Now</>}
-                        </button>
-                    </div>
-                </div>
+                            {sending ? 'Sending...' : <><Send size={16} /> Send Campaign</>}
+                        </Button>
+                    </CardFooter>
+                </Card>
             </div>
 
             {/* Right Panel: Recent History (40%) */}
-            <div className="w-[380px] flex flex-col space-y-6 h-full hidden lg:flex">
+            <div className="w-[400px] flex flex-col space-y-6 h-full hidden lg:flex">
                 <div className="flex flex-col gap-1 invisible">
-                    {/* Placeholder to match Left Panel Header height/spacing */}
-                    <h1 className="text-2xl font-bold flex items-center gap-2">HIDDEN</h1>
-                    <p className="">HIDDEN</p>
+                    {/* Spacing alignment */}
+                    <h1 className="text-2xl font-bold">HIDDEN</h1>
+                    <p>HIDDEN</p>
                 </div>
 
-                <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-                        <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                            <Clock size={16} /> Recent Activity
-                        </h3>
-                        <button onClick={loadLogs} className="text-xs text-primary hover:underline">Refresh</button>
-                    </div>
-                    <div className="overflow-y-auto flex-1 p-0">
+                <Card className="flex-1 flex flex-col shadow-sm border-slate-200 overflow-hidden dark:border-slate-800">
+                    <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4 flex flex-row items-center justify-between dark:bg-slate-900 dark:border-slate-800">
+                        <CardTitle className="text-base flex items-center gap-2 dark:text-slate-200">
+                            <Clock size={16} className="text-slate-500" /> Recent Activity
+                        </CardTitle>
+                        <Button variant="ghost" size="sm" onClick={loadLogs} className="h-8 w-8 p-0">
+                            <RefreshCw size={14} />
+                        </Button>
+                    </CardHeader>
+                    <CardContent className="p-0 flex-1 overflow-y-auto">
                         {logs.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 p-8 text-center">
-                                <Smartphone size={32} className="opacity-20" />
-                                <p className="text-sm">No recent messages sent.</p>
+                            <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-3 p-8 text-center">
+                                <Smartphone size={48} className="opacity-20" />
+                                <p className="text-sm font-medium">No messages sent yet.</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-gray-50">
+                            <div className="divide-y divide-slate-100 dark:divide-slate-800">
                                 {logs.map((log) => (
-                                    <div key={log.id} className="p-4 hover:bg-gray-50/80 transition-all group border-l-2 border-transparent hover:border-primary">
-                                        <div className="flex justify-between items-center mb-1.5">
+                                    <div key={log.id} className="p-4 hover:bg-slate-50 transition-colors group dark:hover:bg-slate-900/50 dark:border-slate-800">
+                                        <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-gray-200 group-hover:bg-primary transition-colors"></span>
-                                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                                <Badge variant="outline" className="text-[10px] font-mono font-normal text-slate-500 border-slate-200">
                                                     {format(new Date(log.sent_at), 'MMM dd, HH:mm')}
-                                                </div>
+                                                </Badge>
                                             </div>
-                                            <div>
-                                                {log.status === 'sent' || log.status === 'mock_sent' ? (
-                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-                                                        <CheckCircle size={10} strokeWidth={3} /> SENT
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
-                                                        <XCircle size={10} strokeWidth={3} /> FAIL
-                                                    </div>
-                                                )}
-                                            </div>
+                                            {log.status === 'sent' || log.status === 'mock_sent' ? (
+                                                <Badge variant="default" className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-200 text-[10px] px-2 h-5">
+                                                    SENT
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="destructive" className="text-[10px] px-2 h-5">
+                                                    FAILED
+                                                </Badge>
+                                            )}
                                         </div>
-                                        <div className="pl-4">
-                                            <div className="text-sm font-bold text-gray-800 mb-0.5">{log.recipient}</div>
-                                            <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed font-medium">{log.message}</p>
+                                        <div className="space-y-1">
+                                            <div className="text-sm font-semibold text-slate-900 dark:text-slate-200">{log.recipient}</div>
+                                            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed dark:text-slate-400">{log.message}</p>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );

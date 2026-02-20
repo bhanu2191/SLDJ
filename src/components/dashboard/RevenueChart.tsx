@@ -1,59 +1,74 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 
+const data = [
+    { name: 'Jan', revenue: 4000 },
+    { name: 'Feb', revenue: 3000 },
+    { name: 'Mar', revenue: 5000 },
+    { name: 'Apr', revenue: 2780 },
+    { name: 'May', revenue: 1890 },
+    { name: 'Jun', revenue: 2390 },
+    { name: 'Jul', revenue: 3490 },
+];
 
-
-interface RevenueChartProps {
-    data: any[];
-}
-
-export function RevenueChart({ data }: RevenueChartProps) {
-    return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full">
-            <div className="mb-6">
-                <h3 className="font-semibold text-slate-800 text-lg">Revenue Overview</h3>
-                <p className="text-sm text-slate-500">Payment collection over the last 30 days</p>
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-white p-3 border border-slate-100 shadow-xl rounded-lg dark:bg-slate-900 dark:border-slate-800">
+                <p className="text-sm font-bold text-slate-800 dark:text-white">{label}</p>
+                <p className="text-sm text-primary font-medium dark:text-primary-400">
+                    LKR {payload[0].value.toLocaleString()}
+                </p>
             </div>
+        );
+    }
+    return null;
+};
 
-            <div className="h-[300px] w-full">
+export function RevenueChart() {
+    return (
+        <Card className="col-span-4 lg:col-span-3 shadow-md border-slate-100 dark:border-slate-800">
+            <CardHeader>
+                <CardTitle className="text-lg font-bold text-slate-800 dark:text-white">Revenue Overview</CardTitle>
+            </CardHeader>
+            <div className="h-[350px] w-full p-4">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.length > 0 ? data : []}>
+                    <AreaChart
+                        data={data}
+                        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                    >
                         <defs>
-                            <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#1a237e" stopOpacity={0.1} />
-                                <stop offset="95%" stopColor="#1a237e" stopOpacity={0} />
+                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#053452" stopOpacity={0.3} className="dark:stop-color-blue-500" />
+                                <stop offset="95%" stopColor="#053452" stopOpacity={0} className="dark:stop-color-blue-500" />
                             </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="opacity-50 dark:opacity-20" />
                         <XAxis
-                            dataKey="date"
+                            dataKey="name"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748B', fontSize: 12 }}
+                            tick={{ fill: '#64748b', fontSize: 12 }}
                             dy={10}
-                            tickFormatter={(value) => new Date(value).getDate().toString()}
                         />
                         <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#64748B', fontSize: 12 }}
-                            tickFormatter={(value) => `LKR ${value / 1000}k`}
+                            tick={{ fill: '#64748b', fontSize: 12 }}
+                            tickFormatter={(value) => `LKR ${value}`}
                         />
-                        <Tooltip
-                            contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                            formatter={(value: unknown) => [`LKR ${Number(value).toLocaleString()}`, 'Revenue']}
-                            labelFormatter={(label) => new Date(label).toLocaleDateString()}
-                        />
+                        <Tooltip content={<CustomTooltip />} />
                         <Area
                             type="monotone"
-                            dataKey="value"
-                            stroke="#1a237e"
+                            dataKey="revenue"
+                            stroke="#053452"
                             strokeWidth={3}
                             fillOpacity={1}
-                            fill="url(#colorValue)"
+                            fill="url(#colorRevenue)"
                         />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
-        </div>
+        </Card>
     );
 }

@@ -225,7 +225,7 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
 
             <button
                 onClick={downloadTemplate}
-                className="p-2 text-slate-400 hover:text-primary transition-colors hover:bg-slate-100 rounded-lg"
+                className="p-2 text-slate-400 hover:text-primary transition-colors hover:bg-slate-100 rounded-lg dark:hover:bg-slate-800"
                 title="Download Template"
             >
                 <FileSpreadsheet size={20} />
@@ -234,7 +234,7 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
             <button
                 onClick={handleButtonClick}
                 disabled={loading}
-                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-primary hover:text-primary transition-all shadow-sm text-sm font-medium disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:border-primary hover:text-primary transition-all shadow-sm text-sm font-medium disabled:opacity-50 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100"
             >
                 {loading ? <Loader2 className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
                 {loading ? `Importing ${progress}%` : 'Import Excel'}

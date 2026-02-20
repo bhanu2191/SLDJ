@@ -10,8 +10,8 @@ export function StudentList() {
                         <Users className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Student Management</h1>
-                        <p className="text-slate-500">View and manage all active students</p>
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Student Management</h1>
+                        <p className="text-slate-500 dark:text-slate-400">View and manage all active students</p>
                     </div>
                 </div>
 

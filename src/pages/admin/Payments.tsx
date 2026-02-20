@@ -1,7 +1,25 @@
 import { useState, useEffect } from 'react';
-import { CreditCard, Ban, Calendar, TrendingUp, ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { CreditCard, Ban, Calendar, TrendingUp, ChevronLeft, ChevronRight, FileSpreadsheet, RefreshCcw, Search } from 'lucide-react';
 import { PaymentReportModal } from '../../components/reports/PaymentReportModal';
-
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/Input';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 interface Payment {
     id: number;
@@ -39,13 +57,17 @@ const AdminPayments = () => {
         const month = String(now.getMonth() + 1).padStart(2, '0');
         return `${year}-${month}`;
     });
-    const [filterClass, setFilterClass] = useState('');
+    const [filterClass, setFilterClass] = useState('ALL');
     const [availableClasses, setAvailableClasses] = useState<string[]>([]);
 
     useEffect(() => {
         setCurrentPage(1); // Reset page on filter change
         loadData();
     }, [filterMonth, filterClass]); // Reload/re-filter when filters change
+
+    useEffect(() => {
+        loadData();
+    }, [currentPage]);
 
     const loadData = async () => {
         try {
@@ -63,8 +85,6 @@ const AdminPayments = () => {
 
             // Filter Logic
             if (filterMonth) {
-                // filterMonth is "YYYY-MM"
-                // payment.month is "January 2026"
                 const [year, month] = filterMonth.split('-');
                 const date = new Date(parseInt(year), parseInt(month) - 1);
                 const monthString = date.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -72,7 +92,7 @@ const AdminPayments = () => {
                 allPayments = allPayments.filter((p: Payment) => p.month === monthString);
             }
 
-            if (filterClass) {
+            if (filterClass && filterClass !== 'ALL') {
                 allPayments = allPayments.filter((p: Payment) => p.class === filterClass);
             }
 
@@ -99,39 +119,21 @@ const AdminPayments = () => {
         }
     };
 
-    // Calculate total pages based on current filtered payments count (need access to allPayments length effectively)
-    // IMPORTANT: loadData updates state asynchronously. 
-    // To handle pagination correctly dynamically without re-fetching everything, strictly we should filter first then paginate.
-    // However, loadData does everything. Let's adjust loadData dependency:
-    // Actually, `loadData` sets `payments` state to the *filtered* list. 
-    // So we can re-derive the grouped data in a separate effect or memo, OR just update the current approach.
-    // The current approach in `loadData` sets `payments` to `allPayments` (the filtered list).
-    // So we can use `payments` state length for total pages calculation.
-    // BUT `loadData` is setting `grouped` based on local `allPayments` variable. 
-    // If I use `payments` state for rendering pagination controls, I need to make sure `groupByMonth` reflects the slice.
-
-    // RETHINK: separating data loading/filtering from pagination/grouping would be cleaner, 
-    // but to keep changes minimal to the existing structure:
-    // I need `useEffect` on `currentPage` to re-run the slicing?
-    // OR just include `currentPage` in the dependency array of `loadData`?
-    // YES, adding `currentPage` to dependencies.
-
-    useEffect(() => {
-        loadData();
-    }, [currentPage]);
-
-
-    // Old CSV Export Removed
-    /* 
-    const exportCSV = () => { ... }
-    */
-
-    if (loading) {
+    if (loading && payments.length === 0) {
         return <div className="flex items-center justify-center h-full">Loading...</div>;
     }
 
     // Helper to format currency
     const formatLKR = (amount: number) => `LKR ${amount.toLocaleString()}`;
+
+    // Helper for Badge Colors
+    const getTypeBadgeVariant = (type: string) => {
+        switch (type.toLowerCase()) {
+            case 'monthly fee': return 'default'; // primary
+            case 'admission': return 'secondary';
+            default: return 'outline';
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -142,181 +144,230 @@ const AdminPayments = () => {
             />
 
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Financial Overview</h1>
-                    <p className="text-gray-500">Track revenue and payment history</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Financial Overview</h1>
+                    <p className="text-slate-500 mt-1 dark:text-slate-400">Monitor revenue streams and payment history.</p>
                 </div>
-                <button
-                    onClick={() => setIsReportModalOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition w-fit shadow-sm"
-                >
-                    <FileSpreadsheet size={18} />
-                    Generate Report
-                </button>
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadData}
+                        className="gap-2"
+                    >
+                        <RefreshCcw className="h-4 w-4" />
+                        Refresh
+                    </Button>
+                    <Button
+                        onClick={() => setIsReportModalOpen(true)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm"
+                    >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Generate Report
+                    </Button>
+                </div>
             </div>
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Total Revenue */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{formatLKR(stats.totalRevenue)}</h3>
-                        <p className="text-xs text-green-600 font-medium mt-1">All time earnings</p>
-                    </div>
-                    <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                        <CreditCard size={24} />
-                    </div>
-                </div>
+                <Card className="border-l-4 border-l-blue-600 shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Total Revenue
+                        </CardTitle>
+                        <CreditCard className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold dark:text-white">{formatLKR(stats.totalRevenue)}</div>
+                        <p className="text-xs text-muted-foreground mt-1 dark:text-slate-400">
+                            All-time earnings
+                        </p>
+                    </CardContent>
+                </Card>
 
                 {/* Monthly Revenue */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Monthly Revenue</p>
-                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{formatLKR(stats.monthlyRevenue)}</h3>
-                        <p className="text-xs text-gray-500 mt-1">For {new Date().toLocaleString('default', { month: 'long' })}</p>
-                    </div>
-                    <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-                        <Calendar size={24} />
-                    </div>
-                </div>
+                <Card className="border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Monthly Revenue
+                        </CardTitle>
+                        <Calendar className="h-4 w-4 text-emerald-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold dark:text-white">{formatLKR(stats.monthlyRevenue)}</div>
+                        <p className="text-xs text-muted-foreground mt-1 dark:text-slate-400">
+                            For {new Date().toLocaleString('default', { month: 'long' })}
+                        </p>
+                    </CardContent>
+                </Card>
 
                 {/* Today's Revenue */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Today's Revenue</p>
-                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{formatLKR(stats.todaysRevenue)}</h3>
-                        <p className="text-xs text-gray-500 mt-1">{new Date().toLocaleDateString()}</p>
-                    </div>
-                    <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-                        <TrendingUp size={24} />
-                    </div>
-                </div>
+                <Card className="border-l-4 border-l-purple-500 shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Today's Revenue
+                        </CardTitle>
+                        <TrendingUp className="h-4 w-4 text-purple-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold dark:text-white">{formatLKR(stats.todaysRevenue)}</div>
+                        <p className="text-xs text-muted-foreground mt-1 dark:text-slate-400">
+                            {new Date().toLocaleDateString()}
+                        </p>
+                    </CardContent>
+                </Card>
 
                 {/* Pending */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500">Pending Amount</p>
-                        <h3 className="text-2xl font-bold text-gray-900 mt-1">{formatLKR(stats.pendingAmount)}</h3>
-                        <p className="text-xs text-orange-600 font-medium mt-1">Estimated unpaid fees</p>
-                    </div>
-                    <div className="p-3 bg-orange-50 text-orange-600 rounded-lg">
-                        <Ban size={24} />
-                    </div>
-                </div>
+                <Card className="border-l-4 border-l-orange-500 shadow-sm hover:shadow-md transition-shadow">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium text-muted-foreground">
+                            Pending Amount
+                        </CardTitle>
+                        <Ban className="h-4 w-4 text-orange-500" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold dark:text-white">{formatLKR(stats.pendingAmount)}</div>
+                        <p className="text-xs text-orange-600 font-medium mt-1 dark:text-orange-400">
+                            Estimated Unpaid Fees
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
 
-
-
-            {/* Payment History Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h2 className="text-lg font-bold text-gray-900">Payment History</h2>
-
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-500">Filter by:</span>
-                            <input
-                                type="month"
-                                value={filterMonth}
-                                onChange={(e) => setFilterMonth(e.target.value)}
-                                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary"
-                            />
-
-                            <select
-                                value={filterClass}
-                                onChange={(e) => setFilterClass(e.target.value)}
-                                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-primary focus:border-primary min-w-[150px]"
-                            >
-                                <option value="">All Classes</option>
-                                {availableClasses.map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
+            {/* Payment History Section */}
+            <Card className="shadow-sm dark:border-slate-800">
+                <CardHeader className="px-6 py-4 border-b bg-slate-50/50 dark:bg-slate-900 dark:border-slate-800">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <CardTitle className="text-lg font-semibold">Payment History</CardTitle>
+                            <CardDescription>View and filter recent transactions.</CardDescription>
                         </div>
-                        {(filterMonth || filterClass) && (
-                            <button
-                                onClick={() => { setFilterMonth(''); setFilterClass(''); }}
-                                className="text-sm text-red-600 hover:text-red-700 font-medium px-2 py-1 hover:bg-red-50 rounded"
-                            >
-                                Clear
-                            </button>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">Filter by:</span>
+                                <Input
+                                    type="month"
+                                    value={filterMonth}
+                                    onChange={(e) => setFilterMonth(e.target.value)}
+                                    className="w-[160px] h-9 bg-white dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:color-scheme-dark"
+                                />
+                                <Select value={filterClass} onValueChange={setFilterClass}>
+                                    <SelectTrigger className="w-[180px] h-9 bg-white dark:bg-slate-950 dark:border-slate-800">
+                                        <SelectValue placeholder="All Classes" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ALL">All Classes</SelectItem>
+                                        {availableClasses.map((c) => (
+                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {(filterMonth || (filterClass && filterClass !== 'ALL')) && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => { setFilterMonth(''); setFilterClass('ALL'); }}
+                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                >
+                                    Clear
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-hidden">
+                        {Object.keys(groupByMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map((month) => (
+                            <div key={month} className="border-b last:border-0 dark:border-slate-800">
+                                <div className="px-6 py-2 bg-slate-100/50 text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:bg-slate-900/50 dark:text-slate-400 dark:border-slate-800">
+                                    {month}
+                                </div>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-slate-50/30 hover:bg-slate-50/30 dark:bg-slate-900/30 dark:hover:bg-slate-900/30 dark:border-slate-800">
+                                            <TableHead className="w-[120px] dark:text-slate-400">Date</TableHead>
+                                            <TableHead className="dark:text-slate-400">Student</TableHead>
+                                            <TableHead className="dark:text-slate-400">Class</TableHead>
+                                            <TableHead className="dark:text-slate-400">Type</TableHead>
+                                            <TableHead className="dark:text-slate-400">Method</TableHead>
+                                            <TableHead className="text-right dark:text-slate-400">Amount</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {groupByMonth[month].map((payment) => (
+                                            <TableRow key={payment.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 dark:border-slate-800">
+                                                <TableCell className="text-muted-foreground font-mono text-xs dark:text-slate-500">
+                                                    {payment.date}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    <div className="flex flex-col">
+                                                        <span className="dark:text-slate-200">{payment.studentName || 'N/A'}</span>
+                                                        <span className="text-xs text-muted-foreground font-normal dark:text-slate-500">{payment.regNum}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="font-normal text-slate-600 bg-slate-50 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800">
+                                                        {payment.class}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={getTypeBadgeVariant(payment.type)} className="capitalize shadow-sm">
+                                                        {payment.type}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="capitalize text-sm text-slate-600 dark:text-slate-400">
+                                                    {payment.method}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono font-medium dark:text-slate-200">
+                                                    {formatLKR(payment.amount)}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ))}
+
+                        {Object.keys(groupByMonth).length === 0 && (
+                            <div className="p-12 text-center text-slate-200 dark:text-slate-700">
+                                <Search className="mx-auto h-12 w-12 text-slate-200 dark:text-slate-700" />
+                                <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">No payments found</h3>
+                                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try adjusting your filters or check back later.</p>
+                            </div>
                         )}
                     </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                    {Object.keys(groupByMonth).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()).map(month => (
-                        <div key={month}>
-                            <div className="px-6 py-3 bg-gray-50 border-y border-gray-200 font-semibold text-gray-700 text-sm">
-                                {month}
-                            </div>
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-white">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {groupByMonth[month].map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.date}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{payment.studentName || payment.regNum}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{payment.class}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{payment.type}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{payment.method}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">{formatLKR(payment.amount)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-                    {Object.keys(groupByMonth).length === 0 && (
-                        <div className="p-8 text-center text-gray-500">
-                            No payments found for this period.
-                        </div>
-                    )}
-                </div>
+                </CardContent>
 
                 {/* Pagination Controls */}
-                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
-                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                        <div>
-                            <p className="text-sm text-gray-700">
-                                Showing dates <span className="font-medium">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium">{Math.min(currentPage * ITEMS_PER_PAGE, payments.length)}</span> of{' '}
-                                <span className="font-medium">{payments.length}</span> results
-                            </p>
-                        </div>
-                        <div>
-                            <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                                <button
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <span className="sr-only">Previous</span>
-                                    <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                                </button>
-                                <button
-                                    onClick={() => setCurrentPage(prev => (prev * ITEMS_PER_PAGE < payments.length ? prev + 1 : prev))}
-                                    disabled={currentPage * ITEMS_PER_PAGE >= payments.length}
-                                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <span className="sr-only">Next</span>
-                                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                                </button>
-                            </nav>
-                        </div>
+                <div className="flex items-center justify-between px-6 py-4 border-t bg-slate-50/50 dark:bg-slate-900 dark:border-slate-800">
+                    <p className="text-sm text-muted-foreground">
+                        Showing <span className="font-medium text-slate-900 dark:text-white">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="font-medium text-slate-900 dark:text-white">{Math.min(currentPage * ITEMS_PER_PAGE, payments.length)}</span> of <span className="font-medium text-slate-900 dark:text-white">{payments.length}</span> results
+                    </p>
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <ChevronLeft className="h-4 w-4 mr-1" />
+                            Previous
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => (prev * ITEMS_PER_PAGE < payments.length ? prev + 1 : prev))}
+                            disabled={currentPage * ITEMS_PER_PAGE >= payments.length}
+                        >
+                            Next
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                        </Button>
                     </div>
                 </div>
-            </div>
+            </Card>
         </div>
     );
 };

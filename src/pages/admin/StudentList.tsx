@@ -1,4 +1,4 @@
-import { AdminStudentTable } from '../../components/students/AdminStudentTable';
+import { StudentTable } from '../../components/students/StudentTable';
 import { Users } from 'lucide-react';
 
 export function AdminStudentList() {
@@ -10,14 +10,14 @@ export function AdminStudentList() {
                         <Users className="h-6 w-6 text-primary" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Student Management (Admin)</h1>
-                        <p className="text-slate-500">View and manage all active students</p>
+                        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Student Management (Admin)</h1>
+                        <p className="text-slate-500 dark:text-slate-400">View and manage all active students</p>
                     </div>
                 </div>
 
             </div>
 
-            <AdminStudentTable />
+            <StudentTable />
         </div>
     );
 }

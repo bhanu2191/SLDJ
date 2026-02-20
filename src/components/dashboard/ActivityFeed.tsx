@@ -1,47 +1,95 @@
-import { UserPlus, CreditCard } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { Coins, UserPlus, FileCheck, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
-interface ActivityFeedProps {
-    activities: any[];
-}
+// Mock data - replace with real props later
+const activities = [
+    {
+        id: 1,
+        type: 'payment',
+        user: 'Kasun Perera',
+        action: 'made a payment of',
+        target: 'LKR 15,000',
+        time: '2 mins ago',
+        icon: Coins,
+        color: 'text-green-600 dark:text-green-400',
+        bg: 'bg-green-100 dark:bg-green-900/20'
+    },
+    {
+        id: 2,
+        type: 'registration',
+        user: 'Nimali Silva',
+        action: 'registered for',
+        target: 'N5 Full Time',
+        time: '1 hour ago',
+        icon: UserPlus,
+        color: 'text-blue-600 dark:text-blue-400',
+        bg: 'bg-blue-100 dark:bg-blue-900/20'
+    },
+    {
+        id: 3,
+        type: 'exam',
+        user: 'Batch 24',
+        action: 'completed',
+        target: 'N4 Mock Exam',
+        time: '3 hours ago',
+        icon: FileCheck,
+        color: 'text-purple-600 dark:text-purple-400',
+        bg: 'bg-purple-100 dark:bg-purple-900/20'
+    },
+    {
+        id: 4,
+        type: 'payment',
+        user: 'Saman Kumara',
+        action: 'made a payment of',
+        target: 'LKR 5,000',
+        time: '4 hours ago',
+        icon: Coins,
+        color: 'text-green-600 dark:text-green-400',
+        bg: 'bg-green-100 dark:bg-green-900/20'
+    },
+];
 
-export function ActivityFeed({ activities }: ActivityFeedProps) {
-    const getIcon = (type: string) => {
-        return type === 'registration' ? UserPlus : CreditCard;
-    };
-
-    const getColor = (type: string) => {
-        return type === 'registration'
-            ? 'bg-emerald-100 text-emerald-600'
-            : 'bg-blue-100 text-blue-600';
-    };
-
+export function ActivityFeed() {
     return (
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="font-semibold text-slate-800 text-lg">Recent Activity</h3>
-            </div>
+        <Card className="flex flex-col h-full shadow-md border-slate-100 dark:border-slate-800">
+            <CardHeader className="border-b border-slate-100 pb-4 dark:border-slate-800">
+                <CardTitle className="text-lg font-bold text-slate-800 dark:text-white">Recent Activity</CardTitle>
+                <CardDescription className="dark:text-slate-400">Latest actions across the system</CardDescription>
+            </CardHeader>
 
-            <div className="space-y-6 overflow-y-auto flex-1 pr-2">
-                {activities.map((item) => {
-                    const Icon = getIcon(item.type);
-                    return (
-                        <div key={item.id} className="flex gap-4 group">
-                            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110", getColor(item.type))}>
-                                <Icon className="h-5 w-5" />
-                            </div>
-                            <div className="pb-4 border-b border-slate-50 last:border-0 last:pb-0 w-full">
-                                <p className="font-medium text-slate-800 text-sm">{item.title}</p>
-                                <p className="text-sm text-slate-500">{item.desc}</p>
-                                <p className="text-xs text-slate-400 mt-1">{new Date(item.time).toLocaleDateString()}</p>
-                            </div>
+            <CardContent className="flex-1 overflow-y-auto p-0">
+                {activities.map((item, index) => (
+                    <div
+                        key={item.id}
+                        className={cn(
+                            "flex items-start gap-4 p-4 hover:bg-slate-50 transition-colors cursor-default dark:hover:bg-slate-900",
+                            index !== activities.length - 1 ? "border-b border-slate-50 dark:border-slate-800" : ""
+                        )}
+                    >
+                        <div className={cn("p-2.5 rounded-full mt-1 flex-shrink-0", item.bg, item.color)}>
+                            <item.icon className="h-4 w-4" />
                         </div>
-                    );
-                })}
-                {activities.length === 0 && (
-                    <p className="text-center text-slate-400 text-sm py-4">No recent activity</p>
-                )}
-            </div>
-        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-800 dark:text-slate-200">
+                                <span className="font-semibold hover:text-primary cursor-pointer transition-colors">{item.user}</span>
+                                <span className="text-slate-500 dark:text-slate-400"> {item.action} </span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{item.target}</span>
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                                {item.time}
+                            </p>
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+
+            <CardFooter className="p-4 border-t border-slate-50 pt-4 dark:border-slate-800">
+                <Button variant="ghost" className="w-full text-primary hover:text-primary hover:bg-primary/5 justify-center gap-2">
+                    View All History <ArrowRight className="h-4 w-4" />
+                </Button>
+            </CardFooter>
+        </Card>
     );
 }

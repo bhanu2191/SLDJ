@@ -1,32 +1,26 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, type UserRole } from '../context/AuthContext';
-import { Shield, Users, ArrowRight } from 'lucide-react';
-import Swal from 'sweetalert2';
+import { Shield, Users, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { toast } from "sonner";
+import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../assets/SLDJ_PNG.png';
-
-// Cute & Short Alert Mixin (Clean White Style)
-const Toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    didOpen: (toast) => {
-        toast.onmouseenter = Swal.stopTimer;
-        toast.onmouseleave = Swal.resumeTimer;
-    },
-    customClass: {
-        popup: 'rounded-2xl shadow-lg border border-gray-100' // Extra rounded for cuteness
-    }
-});
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/label';
+import {
+    InputOTP,
+    InputOTPGroup,
+    InputOTPSlot,
+} from "@/components/ui/input-otp"
+import loginBg from '@/assets/login-bg.jpg';
+import { ModeToggle } from '@/components/mode-toggle';
 
 export function Login() {
     const [selectedRole, setSelectedRole] = useState<UserRole>('operator');
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
     const [showOtpInput, setShowOtpInput] = useState(false);
-    // const [error, setError] = useState(''); // Removed local error state in favor of Alerts
     const { login, isLoading, error: contextError } = useAuth();
     const navigate = useNavigate();
 
@@ -42,17 +36,12 @@ export function Login() {
     React.useEffect(() => {
         if (contextError === 'OTP_REQUIRED') {
             setShowOtpInput(true);
-            Toast.fire({
-                icon: 'success',
-                title: 'Code Sent!',
-                text: 'Check your mobile.'
+            toast.success('Code Sent!', {
+                description: 'Check your mobile for the verification code.',
             });
         } else if (contextError && contextError !== 'OTP_REQUIRED') {
-            // Handle other errors via SMALL Toast
-            Toast.fire({
-                icon: 'error',
-                title: 'Oops!',
-                text: contextError
+            toast.error('Authentication Failed', {
+                description: contextError,
             });
         }
     }, [contextError]);
@@ -63,20 +52,15 @@ export function Login() {
         // Validation: OTP Step
         if (showOtpInput) {
             if (!otp || otp.length !== 6) {
-                Toast.fire({
-                    icon: 'warning',
-                    title: 'Invalid Code',
-                    text: 'Please enter the 6-digit code sent to your mobile.'
+                toast.warning('Invalid Code', {
+                    description: 'Please enter the 6-digit code sent to your mobile.'
                 });
                 return;
             }
 
             const success = await login({ role: selectedRole, password, otp });
             if (success) {
-                Toast.fire({
-                    icon: 'success',
-                    title: 'Welcome Back!'
-                });
+                toast.success('Welcome Back!');
                 navigate(selectedRole === 'admin' ? '/admin' : '/operator', { replace: true });
             }
             return;
@@ -84,10 +68,8 @@ export function Login() {
 
         // Validation: Initial Login Step
         if (!password.trim()) {
-            Toast.fire({
-                icon: 'warning',
-                title: 'Password Required',
-                text: 'Please enter your password to continue.'
+            toast.warning('Password Required', {
+                description: 'Please enter your password to continue.'
             });
             return;
         }
@@ -96,10 +78,7 @@ export function Login() {
         const success = await login({ role: selectedRole, password });
 
         if (success) {
-            Toast.fire({
-                icon: 'success',
-                title: 'Welcome!'
-            });
+            toast.success('Welcome!');
             navigate(selectedRole === 'admin' ? '/admin' : '/operator', { replace: true });
         }
     };
@@ -110,204 +89,247 @@ export function Login() {
     };
 
     return (
-        <div className="min-h-screen flex bg-white">
-            {/* Left Side - Hero / Branding */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-charcoal text-white overflow-hidden">
-                <div className="absolute inset-0 bg-primary/20 mix-blend-multiply z-10" />
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523050854058-8df90110c9f1?ixlib=rb-4.0.3&auto=format&fit=crop&w=1500&q=80')] bg-cover bg-center opacity-40 z-0" />
+        <div className="min-h-screen flex bg-white overflow-hidden font-sans dark:bg-slate-950">
+            {/* Left Side - Premium Hero / Branding */}
+            <motion.div
+                initial={{ x: -100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="hidden lg:flex lg:w-[55%] relative bg-[#0F172A] text-white overflow-hidden items-center justify-center"
+            >
+                {/* Dynamic Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-black z-10 opacity-90" />
+                <motion.div
+                    initial={{ scale: 1.1 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 20, repeat: Infinity, repeatType: "reverse", ease: "linear" }}
+                    className="absolute inset-0 bg-cover bg-center opacity-40 z-0"
+                    style={{ backgroundImage: `url(${loginBg})` }}
+                />
 
-                <div className="relative z-20 flex flex-col justify-between p-12 h-full w-full">
-                    <div className="flex items-center gap-3">
-                        <div className="p-1 bg-white rounded-xl shadow-lg inline-block">
-                            <img src={logo} alt="SLDJ Logo" className="h-20 w-auto" />
+                <div className="relative z-20 flex flex-col justify-between h-full w-full p-16">
+                    {/* Header Logo */}
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white p-1 rounded-2xl shadow-lg">
+                            <img src={logo} alt="SLDJ Logo" className="h-12 w-auto" />
                         </div>
-                        <span className="text-3xl font-bold tracking-tight">SL Dream Japan</span>
+                        <div>
+                            <h3 className="text-lg font-bold tracking-tight text-white">SL DREAM</h3>
+                            <p className="text-xs text-blue-200 tracking-[0.2em] uppercase">Japan</p>
+                        </div>
                     </div>
 
-                    <div className="space-y-6">
-                        <h1 className="text-5xl font-extrabold leading-tight">
-                            Build Your Future <br />
-                            <span className="text-primary-light">In Japan</span>
-                        </h1>
-                        <p className="text-lg text-gray-300 max-w-md">
-                            The premier institute for Japanese language education and cultural integration. Manage your journey with us.
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-400">
-                        <span>© 2026 SLDJ Institute</span>
-                        <div className="h-1 w-1 rounded-full bg-gray-500" />
-                        <span>Privacy Policy</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Right Side - Login Form */}
-            <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 xl:px-24 bg-gray-50 lg:bg-white">
-                <div className="mx-auto w-full max-w-sm lg:max-w-md">
-                    <div className="flex justify-center mb-8 lg:hidden">
-                        <img src={logo} alt="SLDJ Logo" className="h-28 w-auto" />
-                    </div>
-
-                    <div className="text-center lg:text-left">
-                        <h2 className="text-4xl font-extrabold text-gray-900">
-                            {showOtpInput ? 'Two-Step Verification' : 'Welcome Back'}
-                        </h2>
-                        <p className="mt-1 text-m text-gray-600">
-                            {showOtpInput
-                                ? 'We sent a verification code to your mobile number.'
-                                : 'Please sign in to access your dashboard.'}
-                        </p>
-                    </div>
-
-                    <div className="mt-10">
-                        <form onSubmit={handleLogin} className="space-y-6">
-
-                            {!showOtpInput ? (
-                                <>
-                                    {/* Role Select */}
-                                    <div>
-                                        <label className="block text-s font-medium text-gray-700 mb-3">
-                                            I am signing in as a:
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedRole('operator');
-                                                    setPassword('');
-                                                }}
-                                                className={`relative flex flex-col items-center p-4 border rounded-xl transition-all duration-200 group ${selectedRole === 'operator'
-                                                    ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-sm'
-                                                    : 'border-gray-200 hover:border-primary/50 hover:bg-primary/5'
-                                                    }`}
-                                            >
-                                                <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'operator' ? 'bg-primary/20 text-primary' : 'bg-gray-100 text-gray-500 group-hover:bg-primary/10 group-hover:text-primary'
-                                                    }`}>
-                                                    <Users className="h-6 w-6" />
-                                                </div>
-                                                <span className={`font-semibold text-sm ${selectedRole === 'operator' ? 'text-primary-dark' : 'text-gray-800'
-                                                    }`}>Operator</span>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSelectedRole('admin');
-                                                    setPassword('');
-                                                }}
-                                                className={`relative flex flex-col items-center p-4 border rounded-xl transition-all duration-200 group ${selectedRole === 'admin'
-                                                    ? 'border-accent bg-accent/5 ring-1 ring-accent shadow-sm'
-                                                    : 'border-gray-200 hover:border-accent/50 hover:bg-accent/5'
-                                                    }`}
-                                            >
-                                                <div className={`p-2 rounded-full mb-3 transition-colors ${selectedRole === 'admin' ? 'bg-accent/20 text-accent' : 'bg-gray-100 text-gray-500 group-hover:bg-accent/10 group-hover:text-accent'
-                                                    }`}>
-                                                    <Shield className="h-6 w-6" />
-                                                </div>
-                                                <span className={`font-semibold text-sm ${selectedRole === 'admin' ? 'text-accent-dark' : 'text-gray-800'
-                                                    }`}>Administrator</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Password input */}
-                                    <div>
-                                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                            Password
-                                        </label>
-                                        <div className="mt-1">
-                                            <input
-                                                id="password"
-                                                name="password"
-                                                type="password"
-                                                autoComplete="current-password"
-                                                spellCheck={false}
-                                                required
-                                                disabled={isLoading}
-                                                autoFocus
-                                                value={password}
-                                                onChange={(e) => setPassword(e.target.value)}
-                                                className={`appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent sm:text-sm transition-all duration-200 ${selectedRole === 'admin'
-                                                    ? 'focus:ring-accent'
-                                                    : 'focus:ring-primary'
-                                                    } ${isLoading ? 'bg-gray-100 cursor-not-allowed opacity-75' : 'bg-white'}`}
-                                                placeholder="Enter your password"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Mobile Number Input Removed (Static Admin Number Used) */}
-                                </>
-                            ) : (
-                                <>
-                                    {/* OTP Input */}
-                                    <div>
-                                        <label htmlFor="otp" className="block text-sm font-medium text-gray-700">
-                                            Verification Code
-                                        </label>
-                                        <div className="mt-1">
-                                            <input
-                                                id="otp"
-                                                name="otp"
-                                                type="text"
-                                                autoComplete="one-time-code"
-                                                required
-                                                value={otp}
-                                                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                                                className="appearance-none block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent sm:text-sm text-center text-tracking-widest text-lg font-mono"
-                                                placeholder="000 000"
-                                            />
-                                        </div>
-                                        <p className="mt-2 text-xs text-center text-gray-500">
-                                            Enter the 6-digit code sent to your mobile.
-                                        </p>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Error Block Removed in favor of SwAlert */}
-
-                            <div>
-                                <button
-                                    type="submit"
-                                    disabled={isLoading}
-                                    className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white transition-all transform hover:scale-[1.02] active:scale-[0.98] 
-                                        ${isLoading
-                                            ? 'bg-primary-dark cursor-not-allowed opacity-80'
-                                            : selectedRole === 'admin'
-                                                ? 'bg-accent hover:bg-accent-dark shadow-lg shadow-accent/30'
-                                                : 'bg-primary hover:bg-primary-dark shadow-lg shadow-primary/30'
-                                        }`}
-                                >
-                                    {isLoading ? (
-                                        <span className="flex items-center gap-2">
-                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            {showOtpInput ? 'Verifying...' : 'Signing in...'}
-                                        </span>
-                                    ) : (
-                                        <span className="flex items-center gap-2">
-                                            {showOtpInput ? 'Verify Code' : 'Continue'} <ArrowRight className="h-5 w-5" />
-                                        </span>
-                                    )}
-                                </button>
-
-                                {showOtpInput && (
-                                    <button
-                                        type="button"
-                                        onClick={handleBack}
-                                        className="mt-4 w-full text-center text-sm text-gray-500 hover:text-gray-700 font-medium"
-                                    >
-                                        Back to Login
-                                    </button>
-                                )}
+                    {/* Main Content */}
+                    <div className="space-y-6 max-w-2xl">
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.8 }}
+                        >
+                            <span className="inline-block py-1 px-3 rounded-full bg-blue-500/10 border border-blue-400/20 text-blue-300 text-xs font-semibold uppercase tracking-wider mb-6">
+                                Official Management Portal
+                            </span>
+                            <h1 className="text-6xl font-black leading-tight tracking-tight mb-6 text-white">
+                                Build Your Future <br />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-500">
+                                    In Japan
+                                </span>
+                            </h1>
+                            <div className="flex border-l-4 border-red-600 pl-6 py-1">
+                                <p className="text-lg text-slate-300 leading-relaxed font-light max-w-lg">
+                                    Experience seamless student management and operational excellence with the SL Dream Japan official platform.
+                                </p>
                             </div>
-                        </form>
+                        </motion.div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center gap-6 text-xs text-slate-500 font-medium">
+                        <span>© 2026 SL Dream Japan (Pvt) Ltd</span>
+                        <div className="h-1 w-1 rounded-full bg-slate-700" />
+                        <span>Privacy Policy</span>
+                        <div className="h-1 w-1 rounded-full bg-slate-700" />
+                        <span>Terms of Service</span>
                     </div>
                 </div>
+            </motion.div>
+
+            {/* Right Side - Clean Login Form */}
+            <div className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 lg:px-16 xl:px-24 bg-white relative dark:bg-slate-950">
+                <div className="absolute top-4 right-4">
+                    <ModeToggle />
+                </div>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="w-full max-w-md space-y-8"
+                >
+                    <div className="text-center lg:text-left space-y-2">
+                        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                            {showOtpInput ? 'Two-Factor Authentication' : 'Welcome Back'}
+                        </h2>
+                        <p className="text-slate-500 dark:text-slate-400">
+                            {showOtpInput
+                                ? 'Enter the 6-digit code sent to your device.'
+                                : 'Please enter your credentials to access the account.'}
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-6 mt-8">
+                        <AnimatePresence mode="wait">
+                            {!showOtpInput ? (
+                                <motion.div
+                                    key="login-step"
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="space-y-6"
+                                >
+                                    {/* Role Select */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedRole('operator');
+                                                setPassword('');
+                                            }}
+                                            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 outline-none ${selectedRole === 'operator'
+                                                ? 'border-blue-600 bg-blue-50/50 shadow-sm dark:bg-blue-500/10'
+                                                : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-900/50'
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className={`p-2 rounded-lg ${selectedRole === 'operator' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                                    }`}>
+                                                    <Users className="h-5 w-5" />
+                                                </div>
+                                                {selectedRole === 'operator' && (
+                                                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                                                )}
+                                            </div>
+                                            <span className={`block font-semibold ${selectedRole === 'operator' ? 'text-blue-900 dark:text-blue-300' : 'text-slate-900 dark:text-slate-200'
+                                                }`}>Operator</span>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">Daily operations</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedRole('admin');
+                                                setPassword('');
+                                            }}
+                                            className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 outline-none ${selectedRole === 'admin'
+                                                ? 'border-amber-500 bg-amber-50/50 shadow-sm dark:bg-amber-500/10'
+                                                : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-900/50'
+                                                }`}
+                                        >
+                                            <div className="flex justify-between items-start mb-2">
+                                                <div className={`p-2 rounded-lg ${selectedRole === 'admin' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                                                    }`}>
+                                                    <Shield className="h-5 w-5" />
+                                                </div>
+                                                {selectedRole === 'admin' && (
+                                                    <CheckCircle2 className="h-5 w-5 text-amber-500" />
+                                                )}
+                                            </div>
+                                            <span className={`block font-semibold ${selectedRole === 'admin' ? 'text-amber-900 dark:text-amber-300' : 'text-slate-900 dark:text-slate-200'
+                                                }`}>Administrator</span>
+                                            <span className="text-xs text-slate-500 dark:text-slate-400">Full access control</span>
+                                        </button>
+                                    </div>
+
+                                    {/* Password Input */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password" className="dark:text-slate-300">Password</Label>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="h-12 bg-slate-50 border-slate-200 focus:bg-white transition-all text-lg dark:bg-slate-900 dark:border-slate-800 dark:text-white dark:focus:bg-slate-950 dark:placeholder:text-slate-600"
+                                            placeholder="••••••••••••"
+                                            required
+                                            autoFocus
+                                        />
+                                    </div>
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="otp-step"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="space-y-6"
+                                >
+                                    {/* OTP Input */}
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.9 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                    >
+                                        <div className="grid gap-4 place-items-center">
+                                            <label htmlFor="otp" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                Verification Code
+                                            </label>
+                                            <InputOTP
+                                                maxLength={6}
+                                                value={otp}
+                                                onChange={(val) => setOtp(val)}
+                                            >
+                                                <InputOTPGroup className="gap-2">
+                                                    {Array.from({ length: 6 }).map((_, index) => (
+                                                        <InputOTPSlot
+                                                            key={index}
+                                                            index={index}
+                                                            className="h-14 w-12 text-2xl font-bold border-2 rounded-lg border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800 dark:text-white"
+                                                        />
+                                                    ))}
+                                                </InputOTPGroup>
+                                            </InputOTP>
+                                            <p className="text-xs text-center text-muted-foreground mt-2">
+                                                Enter the 6-digit code sent to your mobile.
+                                            </p>
+                                        </div>
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        <div className="pt-2">
+                            <Button
+                                type="submit"
+                                disabled={isLoading}
+                                className={`w-full h-12 text-base font-semibold shadow-xl transition-all hover:scale-[1.01] active:scale-[0.99] ${selectedRole === 'admin'
+                                    ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20 text-white'
+                                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 text-white'
+                                    }`}
+                            >
+                                {isLoading ? (
+                                    <span className="flex items-center gap-2">
+                                        <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Processing...
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-2">
+                                        {showOtpInput ? 'Verify & Login' : 'Continue'} <ArrowRight className="h-5 w-5" />
+                                    </span>
+                                )}
+                            </Button>
+
+                            {showOtpInput && (
+                                <button
+                                    type="button"
+                                    onClick={handleBack}
+                                    className="mt-6 w-full text-sm text-slate-500 hover:text-slate-800 font-medium transition-colors"
+                                >
+                                    ← Back to Role Selection
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                </motion.div>
             </div>
         </div>
     );

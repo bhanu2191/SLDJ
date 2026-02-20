@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Search, Shield, X, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, Search, Shield, MoreHorizontal } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/Input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Swal from 'sweetalert2';
 
 interface Operator {
     id: number;
@@ -10,12 +18,14 @@ interface Operator {
     lastActive: string;
 }
 
-const initialOperators: Operator[] = []; // Start empty, fetch from DB
+const initialOperators: Operator[] = [];
 
 export const UserManagement = () => {
     const [operators, setOperators] = useState<Operator[]>(initialOperators);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [newOperator, setNewOperator] = useState({ name: '', email: '', password: '' });
 
-    // Load users from DB on mount
     useEffect(() => {
         loadOperators();
     }, []);
@@ -29,23 +39,27 @@ export const UserManagement = () => {
             console.error("Failed to load operators", error);
         }
     };
-    const [searchTerm, setSearchTerm] = useState('');
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-
-    // New Operator Form State
-    const [newOperatorName, setNewOperatorName] = useState('');
-    const [newOperatorEmail, setNewOperatorEmail] = useState('');
-    const [newOperatorPassword, setNewOperatorPassword] = useState('');
-    const [showPassword, setShowPassword] = useState(false);
 
     const handleDelete = async (id: number) => {
-        if (confirm('Are you sure you want to delete this operator?')) {
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (result.isConfirmed) {
             try {
                 // @ts-ignore
                 await window.electronAPI.deleteOperator(id);
                 loadOperators();
+                Swal.fire('Deleted!', 'Operator has been deleted.', 'success');
             } catch (error) {
                 console.error("Failed to delete operator", error);
+                Swal.fire('Error', 'Failed to delete operator.', 'error');
             }
         }
     };
@@ -61,208 +75,177 @@ export const UserManagement = () => {
 
     const handleAddOperator = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newOperatorName || !newOperatorEmail || !newOperatorPassword) return;
-
-        const newOp = {
-            name: newOperatorName,
-            email: newOperatorEmail,
-            role: 'operator',
-            status: 'active',
-            lastActive: 'Just now',
-            password: newOperatorPassword // Send password to backend
-        };
-
-        if (!window.electronAPI) {
-            alert("System Error: Electron API is missing. Please restart the application entirely (close and re-run).");
-            return;
-        }
+        if (!newOperator.name || !newOperator.email || !newOperator.password) return;
 
         try {
+            const newOp = {
+                ...newOperator,
+                role: 'operator',
+                status: 'active',
+                lastActive: 'Just now'
+            };
             // @ts-ignore
             await window.electronAPI.addOperator(newOp);
-            loadOperators(); // Refresh list
+            loadOperators();
             setIsAddModalOpen(false);
-            setNewOperatorName('');
-            setNewOperatorEmail('');
-            setNewOperatorPassword('');
+            setNewOperator({ name: '', email: '', password: '' });
+            Swal.fire('Success', 'Operator created successfully', 'success');
         } catch (error: any) {
             console.error("Failed to add operator", error);
-            alert(`Error adding operator: ${error.message || 'Unknown error'}. \n\nDid you restart the app after the last update?`);
+            Swal.fire('Error', error.message || 'Failed to create operator', 'error');
         }
     };
 
+    const filteredOperators = operators.filter(op =>
+        op.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        op.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <div className="space-y-6 relative">
+        <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-                    <p className="text-gray-500">Manage operator accounts and permissions</p>
+                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">User Management</h1>
+                    <p className="text-slate-500 dark:text-slate-400">Manage operator accounts and system access.</p>
                 </div>
-                <button
-                    onClick={() => setIsAddModalOpen(true)}
-                    className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors shadow-md hover:shadow-lg"
-                >
-                    <Plus size={20} />
-                    Add New Operator
-                </button>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="p-4 border-b border-gray-200 bg-gray-50 flex gap-4">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <input
-                            type="text"
-                            placeholder="Search operators..."
-                            className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary sm:text-sm p-2"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Operator</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {operators.map((operator) => (
-                            <tr key={operator.id}>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center">
-                                        <div className="flex-shrink-0 h-10 w-10 bg-primary-100 rounded-full flex items-center justify-center text-primary font-bold">
-                                            {operator.name.charAt(0)}
-                                        </div>
-                                        <div className="ml-4">
-                                            <div className="text-sm font-medium text-gray-900">{operator.name}</div>
-                                            <div className="text-sm text-gray-500">{operator.email}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${operator.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                        }`}>
-                                        {operator.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {operator.lastActive}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <button
-                                        onClick={() => handleToggleStatus(operator.id)}
-                                        className="text-primary hover:text-primary-dark mr-4"
-                                        title={operator.status === 'active' ? 'Suspend' : 'Activate'}
-                                    >
-                                        <Shield size={18} />
-                                    </button>
-                                    <button
-                                        className="text-gray-400 hover:text-gray-600 mr-4"
-                                        title="Edit"
-                                    >
-                                        <Edit size={18} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(operator.id)}
-                                        className="text-red-600 hover:text-red-900"
-                                        title="Delete"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Add Operator Modal */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all scale-100 p-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                <UserPlus className="text-primary" size={24} />
-                                Add New Operator
-                            </h2>
-                            <button
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors"
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleAddOperator}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                                        placeholder="e.g. John Doe"
-                                        value={newOperatorName}
-                                        onChange={(e) => setNewOperatorName(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                                    <input
-                                        type="email"
-                                        required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                                        placeholder="e.g. john@sldj.edu.lk"
-                                        value={newOperatorEmail}
-                                        onChange={(e) => setNewOperatorEmail(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                                    <div className="relative">
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            required
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all pr-10"
-                                            placeholder="Min. 8 characters"
-                                            value={newOperatorPassword}
-                                            onChange={(e) => setNewOperatorPassword(e.target.value)}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                        >
-                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                        </button>
-                                    </div>
-                                </div>
+                <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="gap-2">
+                            <Plus size={16} /> Add Operator
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add New Operator</DialogTitle>
+                            <DialogDescription>
+                                Create a new account for staff members. They will have access to student management and payments.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <form onSubmit={handleAddOperator} className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Full Name</label>
+                                <Input
+                                    placeholder="e.g. John Doe"
+                                    value={newOperator.name}
+                                    onChange={(e) => setNewOperator({ ...newOperator, name: e.target.value })}
+                                    required
+                                />
                             </div>
-
-                            <div className="mt-8 flex gap-3 justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddModalOpen(false)}
-                                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium transition-colors shadow-sm"
-                                >
-                                    Create Operator
-                                </button>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email Address</label>
+                                <Input
+                                    type="email"
+                                    placeholder="e.g. john@sldj.edu"
+                                    value={newOperator.email}
+                                    onChange={(e) => setNewOperator({ ...newOperator, email: e.target.value })}
+                                    required
+                                />
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Password</label>
+                                <Input
+                                    type="password"
+                                    placeholder="••••••••"
+                                    value={newOperator.password}
+                                    onChange={(e) => setNewOperator({ ...newOperator, password: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <DialogFooter>
+                                <Button type="submit">Create Account</Button>
+                            </DialogFooter>
                         </form>
+                    </DialogContent>
+                </Dialog>
+            </div>
+
+            <Card className="dark:border-slate-800">
+                <CardHeader>
+                    <CardTitle>Operators</CardTitle>
+                    <CardDescription>A list of all registered operators having access to the system.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center py-4">
+                        <div className="relative w-full max-w-sm">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+                            <Input
+                                placeholder="Filter operators..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 dark:bg-slate-950 dark:border-slate-800"
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="dark:border-slate-800">
+                                    <TableHead className="dark:text-slate-400">Name</TableHead>
+                                    <TableHead className="dark:text-slate-400">Status</TableHead>
+                                    <TableHead className="dark:text-slate-400">Last Active</TableHead>
+                                    <TableHead className="text-right dark:text-slate-400">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredOperators.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            No operators found.
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredOperators.map((operator) => (
+                                        <TableRow key={operator.id} className="dark:border-slate-800">
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                                        {operator.name.charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-medium dark:text-white">{operator.name}</div>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400">{operator.email}</div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={operator.status === 'active' ? 'success' : 'destructive'}>
+                                                    {operator.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-slate-500 dark:text-slate-400">{operator.lastActive}</TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" className="h-8 w-8 p-0">
+                                                            <span className="sr-only">Open menu</span>
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(operator.email)}>
+                                                            Copy Email
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => handleToggleStatus(operator.id)}>
+                                                            <Shield className="mr-2 h-4 w-4" />
+                                                            {operator.status === 'active' ? 'Suspend' : 'Activate'}
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDelete(operator.id)} className="text-red-600 focus:text-red-600">
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 };

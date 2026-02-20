@@ -4,7 +4,10 @@ import { app, BrowserWindow, ipcMain, globalShortcut, dialog } from 'electron';
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication,AutofillAddressEnabled,PasswordManager,AutofillCreditCardEnabled');
 app.commandLine.appendSwitch('disable-save-password-bubble');
 
-// Filter useless DevTools errors from stderr
+// Suppress extraneous console logs
+app.commandLine.appendSwitch('log-level', '3'); // Fatal only
+
+// Filter useless DevTools errors from stderr/stdout
 const originalStderrWrite = process.stderr.write;
 process.stderr.write = function (chunk, encoding, callback) {
     const str = chunk.toString();
@@ -12,6 +15,15 @@ process.stderr.write = function (chunk, encoding, callback) {
         return true;
     }
     return originalStderrWrite.call(process.stderr, chunk, encoding, callback);
+};
+
+const originalStdoutWrite = process.stdout.write;
+process.stdout.write = function (chunk, encoding, callback) {
+    const str = chunk.toString();
+    if (str.includes('Request Autofill.enable failed') || str.includes('Request Autofill.setAddresses failed')) {
+        return true;
+    }
+    return originalStdoutWrite.call(process.stdout, chunk, encoding, callback);
 };
 
 import { join, dirname } from 'path';
@@ -325,6 +337,7 @@ const createWindow = () => {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        show: false, // Don't show until ready to prevent resizing glitch
         webPreferences: {
             preload: join(__dirname, 'preload.cjs'),
             nodeIntegration: false,
@@ -335,6 +348,14 @@ const createWindow = () => {
 
     // Remove the menu bar completely
     mainWindow.setMenu(null);
+
+    // Maximize immediately while hidden to ensure layout is calculated at full size
+    mainWindow.maximize();
+
+    // Smooth Startup: Show only when ready
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show();
+    });
 
     // In development, load from the Vite dev server
     if (!app.isPackaged) {

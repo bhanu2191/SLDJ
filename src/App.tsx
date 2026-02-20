@@ -19,6 +19,10 @@ import { AdminStudentList } from './pages/admin/StudentList';
 // Placeholders for new pages to avoid build errors while we implement them
 // const Messages = () => <div>Messages Content</div>;
 
+
+import { Toaster } from "@/components/ui/sonner";
+import { CommandPalette } from "@/components/CommandPalette";
+
 function App() {
   return (
     <HashRouter>
@@ -51,6 +55,8 @@ function App() {
           {/* Fallback */}
           <Route path="/" element={<Navigate to="/login" replace />} />
         </Routes>
+        <Toaster />
+        <CommandPalette />
       </AuthProvider>
     </HashRouter>
   );

@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Save, Plus, Trash2, RefreshCw, Bell, Play } from 'lucide-react';
+import { Save, Plus, Trash2, RefreshCw, Play } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/Input";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import Swal from 'sweetalert2';
 
 interface ClassCategory {
     id: number | string;
@@ -26,31 +34,12 @@ export const SystemSettings = () => {
     });
 
     const [reminderRunning, setReminderRunning] = useState(false);
-
-    const handleRunReminders = async () => {
-        if (!confirm("Are you sure you want to run the payment reminder check now? This will send SMS to all unpaid students.")) return;
-
-        setReminderRunning(true);
-        try {
-            const result = await window.electronAPI.triggerPaymentReminders();
-            if (result.success) {
-                alert(`Reminder Check Completed.\nSent: ${result.sent}\nFailed: ${result.failed}`);
-            } else {
-                alert(`Error: ${result.message}`);
-            }
-        } catch (error) {
-            console.error("Failed to run reminders:", error);
-            alert("Failed to run reminders.");
-        } finally {
-            setReminderRunning(false);
-        }
-    };
     const [smsSaving, setSmsSaving] = useState(false);
     const [smsBalance, setSmsBalance] = useState<string | number | null>(null);
 
     useEffect(() => {
         loadCategories();
-        loadSmsSettings(); // Load SMS settings on mount
+        loadSmsSettings();
     }, []);
 
     const loadSmsSettings = async () => {
@@ -58,7 +47,6 @@ export const SystemSettings = () => {
             const settings = await window.electronAPI.getSmsConfig();
             if (settings) {
                 setSmsSettings(settings);
-                // Also load balance
                 loadBalance();
             }
         } catch (error) {
@@ -73,7 +61,6 @@ export const SystemSettings = () => {
             if (result.success) {
                 setSmsBalance(result.balance);
             } else {
-                // Show actual error for debugging
                 console.error("Balance Error:", result.error);
                 setSmsBalance(typeof result.error === 'string' ? result.error.substring(0, 20) : "Failed");
             }
@@ -107,10 +94,8 @@ export const SystemSettings = () => {
 
     const handleDeleteCategory = (id: number | string) => {
         if (String(id).startsWith('temp-')) {
-            // Just remove from state if it's a new unsaved item
             setClassCategories(classCategories.filter(cat => cat.id !== id));
         } else {
-            // Mark for deletion
             setDeletedIds([...deletedIds, id]);
             setClassCategories(classCategories.filter(cat => cat.id !== id));
         }
@@ -119,31 +104,24 @@ export const SystemSettings = () => {
     const handleSaveChanges = async () => {
         setSaving(true);
         try {
-            // 1. Delete removed items
             for (const id of deletedIds) {
                 await window.electronAPI.deleteClassCategory(id);
             }
-
-            // 2. Process additions and updates
             for (const cat of classCategories) {
                 if (cat.isNew) {
                     if (cat.name && cat.fee) {
                         await window.electronAPI.addClassCategory({ name: cat.name, fee: Number(cat.fee) });
                     }
                 } else {
-                    // Check if modified (optimally) or just update (simpler)
-                    // For now, simple update
                     await window.electronAPI.updateClassCategory({ id: cat.id, name: cat.name, fee: Number(cat.fee) });
                 }
             }
-
-            // Reset state
             setDeletedIds([]);
             await loadCategories();
-            alert('Changes saved successfully!');
+            Swal.fire('Saved!', 'Class categories updated successfully.', 'success');
         } catch (error) {
             console.error("Failed to save changes:", error);
-            alert('Failed to save changes.');
+            Swal.fire('Error', 'Failed to save changes.', 'error');
         } finally {
             setSaving(false);
         }
@@ -154,230 +132,241 @@ export const SystemSettings = () => {
         try {
             // @ts-ignore
             await window.electronAPI.saveSmsConfig(smsSettings);
-            alert('SMS Configuration saved!');
-            // Refresh balance immediately with new keys
+            Swal.fire('Saved!', 'SMS Configuration saved!', 'success');
             await loadBalance();
         } catch (error) {
             console.error("Failed to save SMS settings:", error);
-            alert('Failed to save SMS configuration.');
+            Swal.fire('Error', 'Failed to save SMS configuration.', 'error');
         } finally {
             setSmsSaving(false);
         }
     };
 
+    const handleRunReminders = async () => {
+        const result = await Swal.fire({
+            title: 'Run Payment Reminders?',
+            text: "This will check for overdue payments and send SMS reminders to all relevant students.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, run it!',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (!result.isConfirmed) return;
+
+        setReminderRunning(true);
+        try {
+            const res = await window.electronAPI.triggerPaymentReminders();
+            if (res.success) {
+                Swal.fire('Completed', `Reminders sent: ${res.sent}\nFailed: ${res.failed}`, 'success');
+            } else {
+                Swal.fire('Error', res.message, 'error');
+            }
+        } catch (error) {
+            console.error("Failed to run reminders:", error);
+            Swal.fire('Error', 'Failed to run reminders.', 'error');
+        } finally {
+            setReminderRunning(false);
+        }
+    };
+
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">System Configuration</h1>
-                <p className="text-gray-500">Manage class fees, categories, and API settings</p>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">System Configuration</h1>
+                <p className="text-slate-500 dark:text-slate-400">Manage global settings, class fees, and integrations.</p>
             </div>
 
-            {/* Class Categories & Fees */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-lg font-semibold text-gray-800">Class Categories & Fees</h2>
-                    <button
-                        onClick={handleAddCategory}
-                        className="text-sm text-primary hover:text-primary-dark font-medium flex items-center gap-1"
-                    >
-                        <Plus size={16} /> Add Category
-                    </button>
-                </div>
+            <Tabs defaultValue="classes" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 max-w-md mb-8">
+                    <TabsTrigger value="classes">Classes & Fees</TabsTrigger>
+                    <TabsTrigger value="sms">SMS Gateway</TabsTrigger>
+                    <TabsTrigger value="reminders">Reminders</TabsTrigger>
+                </TabsList>
 
-                {loading ? (
-                    <p className="text-gray-500 text-sm">Loading categories...</p>
-                ) : (
-                    <div className="space-y-4">
-                        {classCategories.length === 0 && (
-                            <p className="text-gray-400 text-sm text-center py-4">No class categories found. Add one to get started.</p>
-                        )}
-                        {classCategories.map((category) => (
-                            <div key={category.id} className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
-                                <div className="flex-1">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Class Name</label>
-                                    <input
-                                        type="text"
-                                        className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-primary focus:border-primary"
-                                        value={category.name || ''}
-                                        onChange={(e) => handleChangeCategory(category.id, 'name', e.target.value)}
-                                        placeholder="e.g. JLPT N5"
-                                    />
-                                </div>
-                                <div className="w-48">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Monthly Fee (LKR)</label>
-                                    <input
-                                        type="number"
-                                        className="w-full bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-primary focus:border-primary"
-                                        value={category.fee || ''}
-                                        onChange={(e) => handleChangeCategory(category.id, 'fee', e.target.value)}
-                                        placeholder="5000"
-                                    />
-                                </div>
-                                <div className="pt-5">
-                                    <button
-                                        onClick={() => handleDeleteCategory(category.id)}
-                                        className="text-red-500 hover:text-red-700 p-2 rounded-md hover:bg-red-50"
-                                    >
-                                        <Trash2 size={18} />
-                                    </button>
-                                </div>
+                <TabsContent value="classes">
+                    <Card className="dark:border-slate-800">
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle>Class Categories</CardTitle>
+                                <CardDescription>Define the courses and their monthly fees.</CardDescription>
                             </div>
-                        ))}
-                    </div>
-                )}
-
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={handleSaveChanges}
-                        disabled={saving}
-                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50"
-                    >
-                        <Save size={18} />
-                        {saving ? 'Saving...' : 'Save Changes'}
-                    </button>
-                </div>
-            </div>
-
-            {/* SMS Gateway Settings */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-800">SMS Gateway Configuration</h2>
-                        <p className="text-sm text-gray-500">Configure your Text.lk or generic SMS provider settings.</p>
-                    </div>
-                    {smsBalance !== null && (
-                        <div className="flex items-center gap-3 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wide leading-tight">Balance</span>
-                                <span className="text-sm font-bold text-gray-800 leading-tight">
-                                    {smsBalance} <span className="text-xs text-gray-500 font-normal">SMS</span>
-                                </span>
-                            </div>
-                            <div className="h-6 w-[1px] bg-gray-200 mx-1"></div>
-                            <button
-                                onClick={loadBalance}
-                                title="Refresh Balance"
-                                className="text-gray-400 hover:text-primary transition-colors p-1 rounded-full hover:bg-gray-100"
-                            >
-                                <RefreshCw size={14} />
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Provider Name</label>
-                        <input
-                            type="text"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            value={smsSettings.provider || ''}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, provider: e.target.value })}
-                            placeholder="e.g. text.lk"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Set to <b>text.lk</b> for Sinhala/Unicode support.</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Sender ID</label>
-                        <input
-                            type="text"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            value={smsSettings.senderId || ''}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, senderId: e.target.value })}
-                        />
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-                        <input
-                            type="password"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary font-mono"
-                            value={smsSettings.apiKey || ''}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, apiKey: e.target.value })}
-                        />
-                    </div>
-                    <div className="md:col-span-2 flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="smsEnabled"
-                            checked={!!smsSettings.enabled}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, enabled: e.target.checked })}
-                            className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                        />
-                        <label htmlFor="smsEnabled" className="text-sm font-medium text-gray-700">Enable SMS Features</label>
-                    </div>
-                </div>
-                <div className="mt-6 flex justify-end">
-                    <button
-                        onClick={handleSaveSmsSettings}
-                        disabled={smsSaving}
-                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
-                        <Save size={18} />
-                        {smsSaving ? 'Saving...' : 'Update Configuration'}
-                    </button>
-                </div>
-            </div>
-
-            {/* Automated Reminders Settings */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <Bell size={20} className="text-primary" />
-                            Automated Payment Reminders
-                        </h2>
-                        <p className="text-sm text-gray-500">Configure when the system automatically sends payment reminders.</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Reminder Date (Monthly)</label>
-                        <select
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            value={smsSettings.reminderDate || 7}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, reminderDate: Number(e.target.value) })}
-                        >
-                            {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
-                                <option key={day} value={day}>{day}th of the month</option>
+                            <Button onClick={handleAddCategory} size="sm" className="gap-2">
+                                <Plus size={16} /> Add Category
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {classCategories.length === 0 && !loading && (
+                                <div className="text-center py-8 text-slate-500 text-sm">
+                                    No categories found. Add one to get started.
+                                </div>
+                            )}
+                            {classCategories.map((category) => (
+                                <div key={category.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 border rounded-lg bg-slate-50/50 dark:bg-slate-900/50 dark:border-slate-800">
+                                    <div className="md:col-span-6 space-y-2">
+                                        <Label className="text-xs text-slate-500">Class Name</Label>
+                                        <Input
+                                            value={category.name || ''}
+                                            onChange={(e) => handleChangeCategory(category.id, 'name', e.target.value)}
+                                            placeholder="e.g. JLPT N5"
+                                            className="dark:bg-slate-950 dark:border-slate-800"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-5 space-y-2">
+                                        <Label className="text-xs text-slate-500">Monthly Fee (LKR)</Label>
+                                        <Input
+                                            type="number"
+                                            value={category.fee || ''}
+                                            onChange={(e) => handleChangeCategory(category.id, 'fee', e.target.value)}
+                                            placeholder="5000"
+                                            className="dark:bg-slate-950 dark:border-slate-800"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <Button
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={() => handleDeleteCategory(category.id)}
+                                            className="w-full"
+                                        >
+                                            <Trash2 size={16} />
+                                        </Button>
+                                    </div>
+                                </div>
                             ))}
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">System checks for pending payments on this day.</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Check Time</label>
-                        <input
-                            type="time"
-                            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary focus:border-primary"
-                            value={smsSettings.reminderTime || '09:00'}
-                            onChange={(e) => setSmsSettings({ ...smsSettings, reminderTime: e.target.value })}
-                        />
-                    </div>
-                </div>
+                        </CardContent>
+                        <CardFooter className="justify-end border-t pt-6 dark:border-slate-800">
+                            <Button onClick={handleSaveChanges} disabled={saving} className="gap-2">
+                                <Save size={16} />
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </TabsContent>
 
-                <div className="mt-6 flex justify-between items-center bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-                    <div>
-                        <h3 className="text-sm font-semibold text-yellow-800">Manual Trigger</h3>
-                        <p className="text-xs text-yellow-700 mt-1">Run the reminder check immediately (bypasses date check).</p>
-                    </div>
-                    <button
-                        onClick={handleRunReminders}
-                        disabled={reminderRunning}
-                        className="bg-white border border-yellow-300 text-yellow-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-yellow-100 transition-colors disabled:opacity-50 font-medium shadow-sm"
-                    >
-                        <Play size={16} />
-                        {reminderRunning ? 'Running...' : 'Run Reminders Now'}
-                    </button>
-                </div>
+                <TabsContent value="sms">
+                    <Card className="dark:border-slate-800">
+                        <CardHeader className="flex flex-row items-start justify-between">
+                            <div>
+                                <CardTitle>SMS Gateway Configuration</CardTitle>
+                                <CardDescription>Configure your SMS provider settings (Text.lk recommended).</CardDescription>
+                            </div>
+                            {smsBalance !== null && (
+                                <Badge variant="secondary" className="px-3 py-1 text-sm font-mono gap-2">
+                                    Balance: {smsBalance} SMS
+                                    <Button variant="ghost" size="icon" className="h-4 w-4 ml-2 p-0" onClick={loadBalance}>
+                                        <RefreshCw size={10} />
+                                    </Button>
+                                </Badge>
+                            )}
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label>Provider Name</Label>
+                                    <Input
+                                        value={smsSettings.provider || ''}
+                                        onChange={(e) => setSmsSettings({ ...smsSettings, provider: e.target.value })}
+                                        placeholder="e.g. text.lk"
+                                        className="dark:bg-slate-950 dark:border-slate-800"
+                                    />
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Set to <b>text.lk</b> for full Sinhala support.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Sender ID</Label>
+                                    <Input
+                                        value={smsSettings.senderId || ''}
+                                        onChange={(e) => setSmsSettings({ ...smsSettings, senderId: e.target.value })}
+                                        placeholder="SLDJ"
+                                        className="dark:bg-slate-950 dark:border-slate-800"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>API Key</Label>
+                                <Input
+                                    type="password"
+                                    value={smsSettings.apiKey || ''}
+                                    onChange={(e) => setSmsSettings({ ...smsSettings, apiKey: e.target.value })}
+                                    className="font-mono dark:bg-slate-950 dark:border-slate-800"
+                                    placeholder="Enter your API key"
+                                />
+                            </div>
+                            <div className="flex items-center space-x-2 rounded-lg border p-4 bg-slate-50 dark:bg-slate-900 dark:border-slate-800">
+                                <Switch
+                                    id="sms-enabled"
+                                    checked={!!smsSettings.enabled}
+                                    onCheckedChange={(checked: boolean) => setSmsSettings({ ...smsSettings, enabled: checked })}
+                                />
+                                <Label htmlFor="sms-enabled" className="font-medium cursor-pointer">Enable SMS Features</Label>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="justify-end border-t pt-6">
+                            <Button onClick={handleSaveSmsSettings} disabled={smsSaving} className="gap-2">
+                                <Save size={16} />
+                                {smsSaving ? 'Saving...' : 'Update Configuration'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </TabsContent>
 
-                <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
-                    <button
-                        onClick={handleSaveSmsSettings}
-                        disabled={smsSaving}
-                        className="bg-primary text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-primary-dark transition-colors disabled:opacity-50">
-                        <Save size={18} />
-                        {smsSaving ? 'Saving...' : 'Update Schedule'}
-                    </button>
-                </div>
-            </div>
+                <TabsContent value="reminders">
+                    <Card className="dark:border-slate-800">
+                        <CardHeader>
+                            <CardTitle>Automated Reminders</CardTitle>
+                            <CardDescription>Configure when the system automatically sends payment reminders to students.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label>Reminder Date (Monthly)</Label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-950 dark:border-slate-800"
+                                        value={smsSettings.reminderDate || 7}
+                                        onChange={(e) => setSmsSettings({ ...smsSettings, reminderDate: Number(e.target.value) })}
+                                    >
+                                        {Array.from({ length: 28 }, (_, i) => i + 1).map(day => (
+                                            <option key={day} value={day}>{day}th of the month</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400">System checks for pending payments on this day.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Check Time</Label>
+                                    <Input
+                                        type="time"
+                                        value={smsSettings.reminderTime || '09:00'}
+                                        onChange={(e) => setSmsSettings({ ...smsSettings, reminderTime: e.target.value })}
+                                        className="dark:bg-slate-950 dark:border-slate-800"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-950/20 dark:border-amber-900">
+                                <div className="space-y-1">
+                                    <h4 className="text-sm font-semibold text-amber-800 dark:text-amber-500">Manual Trigger</h4>
+                                    <p className="text-xs text-amber-700 dark:text-amber-600">Run the reminder check immediateley (bypasses date check).</p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    className="border-amber-300 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-500 dark:hover:bg-amber-900/30"
+                                    onClick={handleRunReminders}
+                                    disabled={reminderRunning}
+                                >
+                                    <Play size={16} className="mr-2" />
+                                    {reminderRunning ? 'Running...' : 'Run Now'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="justify-end border-t pt-6 dark:border-slate-800">
+                            <Button onClick={handleSaveSmsSettings} disabled={smsSaving} className="gap-2">
+                                <Save size={16} />
+                                {smsSaving ? 'Saving...' : 'Update Schedule'}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 };

@@ -310,7 +310,7 @@ export const Payments = () => {
 
 
             {selectedStudent && (
-                <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-fade-in">
+                <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fade-in dark:bg-slate-900 dark:border-slate-800">
                     <div className="p-6 bg-primary-50 border-b border-primary-100 flex justify-between items-center">
                         <div>
                             <h2 className="text-xl font-bold text-primary-dark">{selectedStudent.name}</h2>
@@ -330,7 +330,7 @@ export const Payments = () => {
                                         <p className="text-sm text-gray-500 mb-1">Previous Payment</p>
                                         <p className="font-medium text-gray-900">{selectedStudent.lastPayment}</p>
                                     </div>
-                                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100">
+                                    <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 dark:bg-orange-900/20 dark:border-orange-900/50">
                                         <p className="text-sm text-orange-600 mb-1">Total Selected</p>
                                         <p className="text-2xl font-bold text-orange-700">
                                             LKR {selectedStudent.classes
@@ -350,8 +350,8 @@ export const Payments = () => {
                                                 key={cls.name}
                                                 className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedClassesToPay.includes(cls.name)
                                                     ? 'border-primary bg-primary/5'
-                                                    : 'border-slate-100 hover:border-slate-200'
-                                                    } ${cls.status === 'paid' ? 'opacity-60 bg-green-50 border-green-200 cursor-not-allowed' : ''}`}
+                                                    : 'border-slate-100 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700'
+                                                    } ${cls.status === 'paid' ? 'opacity-60 bg-green-50 border-green-200 cursor-not-allowed dark:bg-green-900/20 dark:border-green-900' : ''}`}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedClassesToPay.includes(cls.name)
@@ -395,7 +395,7 @@ export const Payments = () => {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center gap-4 py-4 border-t border-gray-100">
+                                <div className="flex items-center gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
                                     <div className="flex-1">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
                                         <div className="flex flex-col gap-3">
@@ -467,7 +467,7 @@ export const Payments = () => {
 
                         {/* Payment History Section */}
                         {paymentHistory.length > 0 && (
-                            <div className="mt-8 border-t border-gray-100 pt-8 animate-fade-in">
+                            <div className="mt-8 border-t border-slate-100 pt-8 animate-fade-in dark:border-slate-800">
                                 <PaymentHistoryList payments={paymentHistory.map(p => ({
                                     ...p,
                                     status: 'paid' // Historical payments are effectively paid
