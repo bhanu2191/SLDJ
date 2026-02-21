@@ -1,16 +1,16 @@
 import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { PaymentHistoryList } from '../components/profile/PaymentHistoryList';
 import { useState, useEffect } from 'react';
-import { Phone, Mail, Calendar, MapPin, Loader2, Edit, X, Save, Check } from 'lucide-react';
+import { Phone, Mail, Calendar, Loader2, Edit, X, Save } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { getStudent, type Student } from '../lib/storage';
 import Swal from 'sweetalert2';
 
 // Shadcn Components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Input } from "@/components/ui/Input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 

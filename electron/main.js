@@ -150,9 +150,9 @@ function initDB() {
         // Ignore error if column already exists
     }
 
-    // Migration for students table columns (guardian, guardianPhone, avatar, gender)
+    // Migration for students table columns (guardian, guardianPhone, avatar, gender, enrollments)
     // We try to add them one by one. If they exist, it throws, we ignore.
-    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone', 'gender'];
+    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone', 'gender', 'enrollments'];
     studentCols.forEach(col => {
         try {
             db.exec(`ALTER TABLE students ADD COLUMN ${col} TEXT`);
@@ -167,9 +167,17 @@ function initDB() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             fee REAL NOT NULL,
+            duration TEXT DEFAULT '3 months',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Migration for class_categories duration
+    try {
+        db.exec("ALTER TABLE class_categories ADD COLUMN duration TEXT DEFAULT '3 months'");
+    } catch (e) {
+        // Ignore error if column already exists
+    }
 
     // SMS Settings Table
     db.exec(`
@@ -506,10 +514,10 @@ app.whenReady().then(() => {
             }
 
             const stmt = db.prepare(`
-            INSERT INTO students (regNum, name, dob, phone, email, class, guardian, guardianPhone, status, avatar, gender)
-            VALUES (@regNum, @name, @dob, @phone, @email, @class, @guardian, @guardianPhone, @status, @avatar, @gender)
+            INSERT INTO students (regNum, name, dob, phone, email, class, enrollments, guardian, guardianPhone, status, avatar, gender)
+            VALUES (@regNum, @name, @dob, @phone, @email, @class, @enrollments, @guardian, @guardianPhone, @status, @avatar, @gender)
         `);
-            stmt.run(studentToSave);
+            stmt.run({ ...studentToSave, enrollments: studentToSave.enrollments || null });
 
             // --- SMS TRIGGER: Registration Welcome ---
             try {
@@ -553,6 +561,7 @@ app.whenReady().then(() => {
             phone = @phone, 
             email = @email, 
             class = @class, 
+            enrollments = @enrollments,
             guardian = @guardian, 
             guardianPhone = @guardianPhone, 
             status = @status, 
@@ -561,7 +570,7 @@ app.whenReady().then(() => {
             updated_at = CURRENT_TIMESTAMP
           WHERE regNum = @regNum
       `);
-        stmt.run(studentToSave);
+        stmt.run({ ...studentToSave, enrollments: studentToSave.enrollments || null });
 
         return studentToSave;
     });
@@ -837,14 +846,14 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('add-class-category', (event, category) => {
-        const stmt = db.prepare('INSERT INTO class_categories (name, fee) VALUES (@name, @fee)');
-        const info = stmt.run(category);
-        return { ...category, id: info.lastInsertRowid };
+        const stmt = db.prepare('INSERT INTO class_categories (name, fee, duration) VALUES (@name, @fee, @duration)');
+        const info = stmt.run({ ...category, duration: category.duration || '3 months' });
+        return { ...category, duration: category.duration || '3 months', id: info.lastInsertRowid };
     });
 
     ipcMain.handle('update-class-category', (event, category) => {
-        const stmt = db.prepare('UPDATE class_categories SET name = @name, fee = @fee WHERE id = @id');
-        stmt.run(category);
+        const stmt = db.prepare('UPDATE class_categories SET name = @name, fee = @fee, duration = @duration WHERE id = @id');
+        stmt.run({ ...category, duration: category.duration || '3 months' });
         return category;
     });
 

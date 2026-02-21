@@ -13,6 +13,7 @@ interface ClassCategory {
     id: number | string;
     name: string;
     fee: number | string;
+    duration?: string;
     isNew?: boolean;
 }
 
@@ -83,7 +84,7 @@ export const SystemSettings = () => {
 
     const handleAddCategory = () => {
         const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        setClassCategories(prev => [...prev, { id: tempId, name: '', fee: '', isNew: true }]);
+        setClassCategories(prev => [...prev, { id: tempId, name: '', fee: '', duration: '3 months', isNew: true }]);
     };
 
     const handleChangeCategory = (id: number | string, field: keyof ClassCategory, value: string) => {
@@ -110,10 +111,10 @@ export const SystemSettings = () => {
             for (const cat of classCategories) {
                 if (cat.isNew) {
                     if (cat.name && cat.fee) {
-                        await window.electronAPI.addClassCategory({ name: cat.name, fee: Number(cat.fee) });
+                        await window.electronAPI.addClassCategory({ name: cat.name, fee: Number(cat.fee), duration: cat.duration || '3 months' });
                     }
                 } else {
-                    await window.electronAPI.updateClassCategory({ id: cat.id, name: cat.name, fee: Number(cat.fee) });
+                    await window.electronAPI.updateClassCategory({ id: cat.id, name: cat.name, fee: Number(cat.fee), duration: cat.duration || '3 months' });
                 }
             }
             setDeletedIds([]);
@@ -202,8 +203,8 @@ export const SystemSettings = () => {
                                 </div>
                             )}
                             {classCategories.map((category) => (
-                                <div key={category.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 border rounded-lg bg-slate-50/50 dark:bg-slate-900/50 dark:border-slate-800">
-                                    <div className="md:col-span-6 space-y-2">
+                                <div key={category.id} className="md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-4 items-end p-4 border rounded-lg bg-slate-50/50 dark:bg-slate-900/50 dark:border-slate-800">
+                                    <div className="md:col-span-4 space-y-2">
                                         <Label className="text-xs text-slate-500">Class Name</Label>
                                         <Input
                                             value={category.name || ''}
@@ -212,7 +213,7 @@ export const SystemSettings = () => {
                                             className="dark:bg-slate-950 dark:border-slate-800"
                                         />
                                     </div>
-                                    <div className="md:col-span-5 space-y-2">
+                                    <div className="md:col-span-4 space-y-2">
                                         <Label className="text-xs text-slate-500">Monthly Fee (LKR)</Label>
                                         <Input
                                             type="number"
@@ -221,6 +222,18 @@ export const SystemSettings = () => {
                                             placeholder="5000"
                                             className="dark:bg-slate-950 dark:border-slate-800"
                                         />
+                                    </div>
+                                    <div className="md:col-span-3 space-y-2">
+                                        <Label className="text-xs text-slate-500">Duration</Label>
+                                        <select
+                                            value={category.duration || '3 months'}
+                                            onChange={(e) => handleChangeCategory(category.id, 'duration', e.target.value)}
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-950 dark:border-slate-800"
+                                        >
+                                            <option value="3 months">3 Months</option>
+                                            <option value="6 months">6 Months</option>
+                                            <option value="1 year">1 Year</option>
+                                        </select>
                                     </div>
                                     <div className="md:col-span-1">
                                         <Button

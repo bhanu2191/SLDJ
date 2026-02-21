@@ -3,7 +3,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Check, RotateCcw, User, Calendar, Phone, Mail, Users } from 'lucide-react';
+import { Save, Check, RotateCcw, User, Phone, Mail, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
@@ -60,10 +60,7 @@ export function Registration() {
         setFormData(prev => ({ ...prev, [key]: value }));
     }
 
-    const validateField = (name: string, value: string): boolean => {
-        // ... (Logic kept same, just calling alert)
-        return true; // Simplified for brevity as alert handles UI
-    };
+
 
     // "Cute & Small" Alert Configuration (Preserved)
     const showCuteAlert = (title: string, text: string, icon: 'success' | 'error' | 'warning', focusId?: string) => {
@@ -130,12 +127,34 @@ export function Registration() {
             const finalId = commitNextStudentId();
             const avatarUrl = formData.gender === 'male' ? 'boy.png' : 'girl.png';
 
+            // Calculate enrollment end dates for selected classes
+            const enrollments = formData.selectedClasses.map(className => {
+                const category = classCategories.find(c => c.name === className);
+                const duration = category?.duration || '3 months';
+                const startDate = new Date();
+                const endDate = new Date(startDate);
+
+                let monthsToAdd = 3;
+                if (duration === '6 months') monthsToAdd = 6;
+                else if (duration === '1 year') monthsToAdd = 12;
+
+                endDate.setMonth(endDate.getMonth() + monthsToAdd);
+
+                return {
+                    className,
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    duration
+                };
+            });
+
             await saveStudent({
                 regNum: finalId,
                 name: formData.fullName,
                 gender: formData.gender as 'male' | 'female',
                 avatar: avatarUrl,
                 class: formData.selectedClasses,
+                enrollments: JSON.stringify(enrollments),
                 dob: formData.dob,
                 phone: formData.phone,
                 email: formData.email,
@@ -335,6 +354,16 @@ export function Registration() {
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                 {classCategories.map((cat) => {
                                     const isSelected = formData.selectedClasses.includes(cat.name);
+
+                                    // Calculate preview dates
+                                    const today = new Date();
+                                    const endDate = new Date(today);
+                                    const duration = cat.duration || '3 months';
+                                    let monthsToAdd = 3;
+                                    if (duration === '6 months') monthsToAdd = 6;
+                                    else if (duration === '1 year') monthsToAdd = 12;
+                                    endDate.setMonth(endDate.getMonth() + monthsToAdd);
+
                                     return (
                                         <div
                                             key={cat.id}
@@ -364,7 +393,20 @@ export function Registration() {
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-xs font-medium text-slate-500 mt-auto">LKR {cat.fee.toLocaleString()}/mo</div>
+                                            <div className="text-xs font-medium text-slate-500 mt-2">
+                                                <div className="mb-1">Fee: LKR {cat.fee.toLocaleString()}/mo</div>
+                                                <div className="mb-1">Duration: {duration}</div>
+                                                <div className="p-2 mt-2 bg-slate-100 rounded-lg dark:bg-slate-800 text-[10px] space-y-1">
+                                                    <div className="flex justify-between">
+                                                        <span>Start:</span>
+                                                        <span className="font-semibold">{today.toLocaleDateString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between">
+                                                        <span>End:</span>
+                                                        <span className="font-semibold text-primary">{endDate.toLocaleDateString()}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     );
                                 })}

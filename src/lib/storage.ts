@@ -11,6 +11,7 @@ export interface Student {
     avatar?: string;
     gender?: 'male' | 'female';
     classStatuses?: { className: string, status: 'paid' | 'pending' | 'overdue' }[];
+    enrollments?: string; // JSON string of enrollment data
 }
 
 export async function getStoredStudents(): Promise<Student[]> {
