@@ -120,9 +120,7 @@ export function StudentTable() {
                         <Download className="h-4 w-4" />
                         Export
                     </Button>
-                    <Button onClick={() => navigate('/register')} className="w-full md:w-auto">
-                        + Add Student
-                    </Button>
+
                 </div>
             </CardHeader>
             <CardContent className="p-0">
