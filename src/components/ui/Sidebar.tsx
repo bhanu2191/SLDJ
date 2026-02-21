@@ -1,5 +1,16 @@
 import { LogOut, type LucideIcon } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from "@/components/ui/dialog";
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { motion } from 'framer-motion';
@@ -19,6 +30,7 @@ interface SidebarProps {
 export function Sidebar({ items }: SidebarProps) {
     const location = useLocation();
     const { logout, user } = useAuth();
+    const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
     return (
         <aside className="h-screen w-72 bg-primary dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 shadow-2xl z-50 overflow-hidden">
@@ -117,13 +129,40 @@ export function Sidebar({ items }: SidebarProps) {
                             <p className="text-xs text-slate-400 truncate">System User</p>
                         </div>
                     </div>
-                    <button
-                        onClick={logout}
-                        className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-red-300 hover:text-red-200 hover:bg-red-500/10 rounded-lg transition-colors"
-                    >
-                        <LogOut className="h-3.5 w-3.5" />
-                        Sign Out
-                    </button>
+                    <Dialog open={isLogoutOpen} onOpenChange={setIsLogoutOpen}>
+                        <DialogTrigger asChild>
+                            <button
+                                className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-red-300 hover:text-red-200 hover:bg-red-500/10 rounded-lg transition-colors"
+                            >
+                                <LogOut className="h-3.5 w-3.5" />
+                                Sign Out
+                            </button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[400px]">
+                            <DialogHeader>
+                                <DialogTitle>Are you sure?</DialogTitle>
+                                <DialogDescription>
+                                    You are about to log out of the {user?.role === 'admin' ? 'Admin' : 'Operator'} Portal.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="sm:justify-end gap-2 mt-4">
+                                <DialogClose asChild>
+                                    <button className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium rounded-md transition-colors">
+                                        Cancel
+                                    </button>
+                                </DialogClose>
+                                <button
+                                    onClick={() => {
+                                        setIsLogoutOpen(false);
+                                        logout();
+                                    }}
+                                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                                >
+                                    Log Out
+                                </button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </motion.div>
             </div>
 

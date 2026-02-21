@@ -184,9 +184,9 @@ export function StudentProfile() {
 
                 <TabsContent value="details" className="space-y-4 mt-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="border-slate-200 shadow-sm dark:border-slate-800">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 flex flex-row items-center justify-between space-y-0 pb-4">
-                                <CardTitle className="text-base font-semibold text-slate-800">Contact Information</CardTitle>
+                        <Card className="border-slate-200 shadow-sm dark:bg-slate-950 dark:border-slate-800">
+                            <CardHeader className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 flex flex-row items-center justify-between space-y-0 pb-4">
+                                <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200">Contact Information</CardTitle>
                                 {isEditing ? (
                                     <div className="flex gap-2">
                                         <Button variant="outline" size="sm" onClick={() => setIsEditing(false)} className="h-8 gap-1">
@@ -205,7 +205,7 @@ export function StudentProfile() {
                             <CardContent className="p-6 space-y-6">
                                 <div className="space-y-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-slate-100 rounded-lg">
+                                        <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-lg">
                                             <Mail className="h-4 w-4 text-slate-500" />
                                         </div>
                                         <div className="flex-1">
@@ -217,13 +217,13 @@ export function StudentProfile() {
                                                     className="h-8 mt-1"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-medium text-slate-800">{displayStudent.email}</p>
+                                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{displayStudent.email}</p>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-slate-100 rounded-lg">
+                                        <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-lg">
                                             <Phone className="h-4 w-4 text-slate-500" />
                                         </div>
                                         <div className="flex-1">
@@ -235,28 +235,28 @@ export function StudentProfile() {
                                                     className="h-8 mt-1"
                                                 />
                                             ) : (
-                                                <p className="text-sm font-medium text-slate-800">{displayStudent.phone}</p>
+                                                <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{displayStudent.phone}</p>
                                             )}
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-slate-100 rounded-lg">
+                                        <div className="p-2 bg-slate-100 dark:bg-slate-900 rounded-lg">
                                             <Calendar className="h-4 w-4 text-slate-500" />
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Date of Birth</p>
-                                            <p className="text-sm font-medium text-slate-800">{displayStudent.dob}</p>
+                                            <p className="text-sm font-medium text-slate-800 dark:text-slate-200">{displayStudent.dob}</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {isEditing && (
-                                    <div className="pt-6 border-t border-slate-100">
-                                        <h4 className="font-medium text-slate-800 mb-4 text-sm">Enrolled Classes</h4>
+                                    <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
+                                        <h4 className="font-medium text-slate-800 dark:text-slate-200 mb-4 text-sm">Enrolled Classes</h4>
                                         <div className="grid grid-cols-2 gap-3">
                                             {allClasses.map(cls => (
-                                                <div key={cls.id} className="flex items-center space-x-2 border rounded-lg p-2 hover:bg-slate-50">
+                                                <div key={cls.id} className="flex items-center space-x-2 border rounded-lg p-2 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900">
                                                     <Checkbox
                                                         id={`cls-${cls.id}`}
                                                         checked={editForm.selectedClasses.includes(cls.name)}
@@ -280,16 +280,16 @@ export function StudentProfile() {
                             </CardContent>
                         </Card>
 
-                        <Card className="border-slate-200 shadow-sm h-fit dark:border-slate-800">
-                            <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-                                <CardTitle className="text-base font-semibold text-slate-800">Guardian Information</CardTitle>
+                        <Card className="border-slate-200 shadow-sm h-fit dark:bg-slate-950 dark:border-slate-800">
+                            <CardHeader className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 pb-4">
+                                <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200">Guardian Information</CardTitle>
                             </CardHeader>
                             <CardContent className="p-6">
                                 <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 dark:bg-slate-900 dark:border-slate-800">
-                                    <h4 className="font-bold text-slate-800 text-lg">{displayStudent.guardian.name}</h4>
-                                    <p className="text-slate-500 text-sm mb-4">{displayStudent.guardian.relation}</p>
+                                    <h4 className="font-bold text-slate-800 dark:text-slate-200 text-lg">{displayStudent.guardian.name}</h4>
+                                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">{displayStudent.guardian.relation}</p>
 
-                                    <div className="flex items-center gap-3 text-slate-700 bg-white p-3 rounded-lg border border-slate-100 shadow-sm">
+                                    <div className="flex items-center gap-3 text-slate-700 bg-white p-3 rounded-lg border border-slate-100 shadow-sm dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300">
                                         <Phone className="h-4 w-4 text-primary" />
                                         <span className="font-mono font-medium">{displayStudent.guardian.phone}</span>
                                     </div>

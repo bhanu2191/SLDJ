@@ -19,9 +19,9 @@ interface PaymentHistoryListProps {
 
 export function PaymentHistoryList({ payments }: PaymentHistoryListProps) {
     return (
-        <Card className="border-slate-200 shadow-sm">
-            <CardHeader className="bg-slate-50 border-b border-slate-100 py-4">
-                <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+        <Card className="border-slate-200 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <CardHeader className="bg-slate-50 border-b border-slate-100 py-4 dark:bg-slate-900/50 dark:border-slate-800">
+                <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
                     Payment History
                 </CardTitle>
@@ -29,7 +29,7 @@ export function PaymentHistoryList({ payments }: PaymentHistoryListProps) {
             <CardContent className="p-0">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50 dark:bg-slate-900/50 dark:hover:bg-slate-900/50">
                             <TableHead className="w-[100px]">Invoice</TableHead>
                             <TableHead>Class</TableHead>
                             <TableHead>Month / Year</TableHead>
@@ -48,12 +48,12 @@ export function PaymentHistoryList({ payments }: PaymentHistoryListProps) {
                             </TableRow>
                         ) : (
                             payments.map((payment) => (
-                                <TableRow key={payment.id} className="hover:bg-slate-50/50">
-                                    <TableCell className="font-mono text-xs text-slate-500">#{payment.id}</TableCell>
-                                    <TableCell className="font-medium text-slate-800">{payment.class || 'N/A'}</TableCell>
-                                    <TableCell className="text-slate-600">{payment.month}</TableCell>
-                                    <TableCell className="font-medium text-slate-900">LKR {payment.amount.toLocaleString()}</TableCell>
-                                    <TableCell className="text-slate-500 text-xs">{payment.date || '-'}</TableCell>
+                                <TableRow key={payment.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50">
+                                    <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400">#{payment.id}</TableCell>
+                                    <TableCell className="font-medium text-slate-800 dark:text-slate-200">{payment.class || 'N/A'}</TableCell>
+                                    <TableCell className="text-slate-600 dark:text-slate-300">{payment.month}</TableCell>
+                                    <TableCell className="font-medium text-slate-900 dark:text-slate-100">LKR {payment.amount.toLocaleString()}</TableCell>
+                                    <TableCell className="text-slate-500 text-xs dark:text-slate-400">{payment.date || '-'}</TableCell>
                                     <TableCell>
                                         <Badge
                                             variant={payment.status === 'paid' ? 'success' : 'destructive'}

@@ -297,13 +297,13 @@ export const Payments = () => {
             <div className="flex items-center gap-4">
                 <button
                     onClick={() => navigate(`/${userRole}/students`)}
-                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors dark:hover:bg-slate-800"
                 >
-                    <ArrowLeft className="text-gray-600" />
+                    <ArrowLeft className="text-gray-600 dark:text-slate-300" />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Payment Collection</h1>
-                    <p className="text-gray-500">Record payments and issue receipts</p>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Payment Collection</h1>
+                    <p className="text-gray-500 dark:text-slate-400">Record payments and issue receipts</p>
                 </div>
             </div>
 
@@ -311,14 +311,14 @@ export const Payments = () => {
 
             {selectedStudent && (
                 <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden animate-fade-in dark:bg-slate-900 dark:border-slate-800">
-                    <div className="p-6 bg-primary-50 border-b border-primary-100 flex justify-between items-center">
+                    <div className="p-6 bg-primary-50 border-b border-primary-100 dark:bg-slate-800/50 dark:border-slate-800 flex justify-between items-center">
                         <div>
-                            <h2 className="text-xl font-bold text-primary-dark">{selectedStudent.name}</h2>
-                            <p className="text-primary font-mono">{selectedStudent.regNum}</p>
+                            <h2 className="text-xl font-bold text-primary-dark dark:text-white">{selectedStudent.name}</h2>
+                            <p className="text-primary dark:text-slate-400 font-mono">{selectedStudent.regNum}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-sm text-primary">Class Count</p>
-                            <p className="font-bold text-primary-dark">{selectedStudent.classes.length} Classes</p>
+                            <p className="text-sm text-primary dark:text-slate-400">Class Count</p>
+                            <p className="font-bold text-primary-dark dark:text-white">{selectedStudent.classes.length} Classes</p>
                         </div>
                     </div>
 
@@ -326,13 +326,13 @@ export const Payments = () => {
                         {!paymentSuccess ? (
                             <div className="space-y-6">
                                 <div className="grid grid-cols-2 gap-8 mb-8">
-                                    <div className="p-4 bg-gray-50 rounded-lg">
-                                        <p className="text-sm text-gray-500 mb-1">Previous Payment</p>
-                                        <p className="font-medium text-gray-900">{selectedStudent.lastPayment}</p>
+                                    <div className="p-4 bg-gray-50 rounded-lg dark:bg-slate-900">
+                                        <p className="text-sm text-gray-500 dark:text-slate-400 mb-1">Previous Payment</p>
+                                        <p className="font-medium text-gray-900 dark:text-white">{selectedStudent.lastPayment}</p>
                                     </div>
                                     <div className="p-4 bg-orange-50 rounded-lg border border-orange-100 dark:bg-orange-900/20 dark:border-orange-900/50">
-                                        <p className="text-sm text-orange-600 mb-1">Total Selected</p>
-                                        <p className="text-2xl font-bold text-orange-700">
+                                        <p className="text-sm text-orange-600 dark:text-orange-400 mb-1">Total Selected</p>
+                                        <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
                                             LKR {selectedStudent.classes
                                                 .filter((c: any) => selectedClassesToPay.includes(c.name))
                                                 .reduce((sum: number, c: any) => sum + c.fee, 0)
@@ -343,29 +343,29 @@ export const Payments = () => {
 
                                 {/* Class Selection List */}
                                 <div className="space-y-3 mb-8">
-                                    <h3 className="font-medium text-gray-700">Select Classes to Pay</h3>
+                                    <h3 className="font-medium text-gray-700 dark:text-slate-300">Select Classes to Pay</h3>
                                     <div className="grid gap-3">
                                         {selectedStudent.classes.map((cls: any) => (
                                             <label
                                                 key={cls.name}
                                                 className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${selectedClassesToPay.includes(cls.name)
-                                                    ? 'border-primary bg-primary/5'
+                                                    ? 'border-primary bg-primary/5 dark:bg-primary/10'
                                                     : 'border-slate-100 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700'
                                                     } ${cls.status === 'paid' ? 'opacity-60 bg-green-50 border-green-200 cursor-not-allowed dark:bg-green-900/20 dark:border-green-900' : ''}`}
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedClassesToPay.includes(cls.name)
-                                                        ? 'bg-primary border-primary text-white'
-                                                        : 'border-slate-300 bg-white'
+                                                        ? 'bg-primary border-primary text-white dark:text-slate-900'
+                                                        : 'border-slate-300 bg-white dark:bg-slate-900'
                                                         }`}>
-                                                        {selectedClassesToPay.includes(cls.name) && <Check size={12} />}
+                                                        {selectedClassesToPay.includes(cls.name) && <Check size={12} strokeWidth={3} />}
                                                     </div>
                                                     <div>
-                                                        <div className="font-medium text-slate-800">{cls.name}</div>
-                                                        <div className="text-xs text-slate-500">
+                                                        <div className="font-medium text-slate-800 dark:text-slate-200">{cls.name}</div>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400">
                                                             Status:
                                                             <span className={`ml-1 font-medium ${cls.status === 'overdue' ? 'text-red-500' :
-                                                                cls.status === 'paid' ? 'text-green-600' :
+                                                                cls.status === 'paid' ? 'text-green-600 dark:text-green-400' :
                                                                     'text-orange-500'
                                                                 }`}>
                                                                 {cls.status.charAt(0).toUpperCase() + cls.status.slice(1)}
@@ -373,7 +373,7 @@ export const Payments = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="font-bold text-slate-700">
+                                                <div className="font-bold text-slate-700 dark:text-slate-300">
                                                     LKR {cls.fee.toLocaleString()}
                                                 </div>
                                                 <input
@@ -397,22 +397,22 @@ export const Payments = () => {
 
                                 <div className="flex items-center gap-4 py-4 border-t border-slate-100 dark:border-slate-800">
                                     <div className="flex-1">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">Payment Method</label>
                                         <div className="flex flex-col gap-3">
                                             <div className="flex gap-4">
-                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                <label className="flex items-center gap-2 cursor-pointer dark:text-slate-300">
                                                     <input type="radio" name="method" defaultChecked className="text-primary focus:ring-indigo-500" />
                                                     <span>Cash</span>
                                                 </label>
 
                                             </div>
 
-                                            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                                            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-slate-400">
                                                 <input
                                                     type="checkbox"
                                                     checked={autoSendEmail}
                                                     onChange={(e) => setAutoSendEmail(e.target.checked)}
-                                                    className="rounded border-gray-300 text-primary focus:ring-primary"
+                                                    className="rounded border-gray-300 text-primary focus:ring-primary dark:border-slate-700 dark:bg-slate-900"
                                                 />
                                                 <div className="flex items-center gap-1.5">
                                                     <Mail size={14} />
@@ -432,16 +432,16 @@ export const Payments = () => {
                             </div>
                         ) : (
                             <div className="text-center py-8">
-                                <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-green-900/40 dark:text-green-400">
                                     <Check size={32} />
                                 </div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-2">Payment Successful!</h3>
-                                <p className="text-gray-500 mb-8">Receipt #REC-2026-0089 generated successfully.</p>
+                                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Payment Successful!</h3>
+                                <p className="text-gray-500 dark:text-slate-400 mb-8">Receipt #REC-2026-0089 generated successfully.</p>
 
                                 <div className="flex justify-center gap-4">
                                     <button
                                         onClick={() => navigate(`/${userRole}/students`)}
-                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 from-medium"
+                                        className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 from-medium dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:text-white"
                                     >
                                         Back to List
                                     </button>

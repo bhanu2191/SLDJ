@@ -138,12 +138,14 @@ export function Registration() {
                 if (duration === '6 months') monthsToAdd = 6;
                 else if (duration === '1 year') monthsToAdd = 12;
 
-                endDate.setMonth(endDate.getMonth() + monthsToAdd);
+                if (duration !== 'Ongoing') {
+                    endDate.setMonth(endDate.getMonth() + monthsToAdd);
+                }
 
                 return {
                     className,
                     startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
+                    endDate: duration === 'Ongoing' ? null : endDate.toISOString(),
                     duration
                 };
             });
@@ -362,7 +364,10 @@ export function Registration() {
                                     let monthsToAdd = 3;
                                     if (duration === '6 months') monthsToAdd = 6;
                                     else if (duration === '1 year') monthsToAdd = 12;
-                                    endDate.setMonth(endDate.getMonth() + monthsToAdd);
+
+                                    if (duration !== 'Ongoing') {
+                                        endDate.setMonth(endDate.getMonth() + monthsToAdd);
+                                    }
 
                                     return (
                                         <div
@@ -386,14 +391,14 @@ export function Registration() {
                                             )}
                                         >
                                             <div className="flex justify-between items-start mb-2">
-                                                <div className="font-semibold text-slate-800 group-hover:text-primary transition-colors text-sm">{cat.name}</div>
+                                                <div className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-primary transition-colors text-sm">{cat.name}</div>
                                                 {isSelected && (
-                                                    <div className="bg-primary text-white rounded-full p-1 shadow-sm animate-in zoom-in-50 duration-200">
-                                                        <Check className="h-3 w-3" />
+                                                    <div className="bg-primary text-white dark:text-slate-900 rounded-full p-1 shadow-sm animate-in zoom-in-50 duration-200">
+                                                        <Check className="h-3 w-3 " strokeWidth={3} />
                                                     </div>
                                                 )}
                                             </div>
-                                            <div className="text-xs font-medium text-slate-500 mt-2">
+                                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2">
                                                 <div className="mb-1">Fee: LKR {cat.fee.toLocaleString()}/mo</div>
                                                 <div className="mb-1">Duration: {duration}</div>
                                                 <div className="p-2 mt-2 bg-slate-100 rounded-lg dark:bg-slate-800 text-[10px] space-y-1">
@@ -401,10 +406,17 @@ export function Registration() {
                                                         <span>Start:</span>
                                                         <span className="font-semibold">{today.toLocaleDateString()}</span>
                                                     </div>
-                                                    <div className="flex justify-between">
-                                                        <span>End:</span>
-                                                        <span className="font-semibold text-primary">{endDate.toLocaleDateString()}</span>
-                                                    </div>
+                                                    {duration !== 'Ongoing' ? (
+                                                        <div className="flex justify-between">
+                                                            <span>End:</span>
+                                                            <span className="font-semibold text-primary">{endDate.toLocaleDateString()}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex justify-between text-slate-500 dark:text-slate-400 italic">
+                                                            <span>End:</span>
+                                                            <span className="font-semibold">Ongoing Enrollment</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

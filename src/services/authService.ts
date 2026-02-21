@@ -11,58 +11,58 @@ class AuthService {
                 setTimeout(async () => {
                     if (credentials.password === 'admin123') {
                         // 2FA Flow
-                        if (credentials.otp) {
-                            // Step 2: Verify OTP
-                            try {
-                                const res = await window.electronAPI.verifyOtp(credentials.otp);
-                                if (res.success) {
-                                    const adminUser: User = {
-                                        id: 'admin-1',
-                                        username: 'admin',
-                                        name: 'System Administrator',
-                                        role: 'admin',
-                                        email: 'admin@sldj.lk',
-                                        avatar: ''
-                                    };
-                                    this.persistSession(adminUser);
-                                    resolve(adminUser);
-                                } else {
-                                    reject(new Error(res.error || 'Invalid Verification Code'));
-                                }
-                            } catch (e) {
-                                reject(e);
-                            }
-                        } else {
-                            // Step 1: Trigger OTP
-                            try {
-                                // Hardcoded static admin number as per request
-                                const staticAdminPhone = '0710157724';
-                                const res = await window.electronAPI.sendOtp(staticAdminPhone);
+                        // if (credentials.otp) {
+                        //     // Step 2: Verify OTP
+                        //     try {
+                        //         const res = await window.electronAPI.verifyOtp(credentials.otp);
+                        //         if (res.success) {
+                        //             const adminUser: User = {
+                        //                 id: 'admin-1',
+                        //                 username: 'admin',
+                        //                 name: 'System Administrator',
+                        //                 role: 'admin',
+                        //                 email: 'admin@sldj.lk',
+                        //                 avatar: ''
+                        //             };
+                        //             this.persistSession(adminUser);
+                        //             resolve(adminUser);
+                        //         } else {
+                        //             reject(new Error(res.error || 'Invalid Verification Code'));
+                        //         }
+                        //     } catch (e) {
+                        //         reject(e);
+                        //     }
+                        // } else {
+                        //     // Step 1: Trigger OTP
+                        //     try {
+                        //         // Hardcoded static admin number as per request
+                        //         const staticAdminPhone = '0710157724';
+                        //         const res = await window.electronAPI.sendOtp(staticAdminPhone);
 
-                                if (res.success) {
-                                    // We reject to stop the "login success" flow, but with specific code
-                                    reject(new Error('OTP_REQUIRED'));
-                                } else {
-                                    reject(new Error(res.error || 'Failed to send verification code'));
-                                }
-                            } catch (e: any) {
-                                console.error("OTP System Error:", e);
-                                // If e.message contains "No handler", it means Main process needs restart
-                                reject(new Error(`System Error: ${e.message || 'Could not send code'}`));
-                            }
-                        }
+                        //         if (res.success) {
+                        //             // We reject to stop the "login success" flow, but with specific code
+                        //             reject(new Error('OTP_REQUIRED'));
+                        //         } else {
+                        //             reject(new Error(res.error || 'Failed to send verification code'));
+                        //         }
+                        //     } catch (e: any) {
+                        //         console.error("OTP System Error:", e);
+                        //         // If e.message contains "No handler", it means Main process needs restart
+                        //         reject(new Error(`System Error: ${e.message || 'Could not send code'}`));
+                        //     }
+                        // }
 
-                        // // Admin login without OTP
-                        // const adminUser: User = {
-                        //     id: 'admin-1',
-                        //     username: 'admin',
-                        //     name: 'System Administrator',
-                        //     role: 'admin',
-                        //     email: 'admin@sldj.lk',
-                        //     avatar: ''
-                        // };
-                        // this.persistSession(adminUser);
-                        // resolve(adminUser);
+                        // Admin login without OTP
+                        const adminUser: User = {
+                            id: 'admin-1',
+                            username: 'admin',
+                            name: 'System Administrator',
+                            role: 'admin',
+                            email: 'admin@sldj.lk',
+                            avatar: ''
+                        };
+                        this.persistSession(adminUser);
+                        resolve(adminUser);
 
 
 

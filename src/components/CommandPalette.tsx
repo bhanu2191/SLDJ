@@ -20,11 +20,21 @@ import {
     CommandSeparator,
     CommandShortcut,
 } from "@/components/ui/command"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogClose,
+} from "@/components/ui/dialog"
 import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 
 export function CommandPalette() {
     const [open, setOpen] = React.useState(false)
+    const [isLogoutOpen, setIsLogoutOpen] = React.useState(false)
     const navigate = useNavigate();
     const { logout, userRole } = useAuth();
 
@@ -89,13 +99,39 @@ export function CommandPalette() {
                                 <span>System Settings</span>
                             </CommandItem>
                         )}
-                        <CommandItem onSelect={() => runCommand(() => logout())}>
+                        <CommandItem onSelect={() => runCommand(() => setIsLogoutOpen(true))}>
                             <LogOut className="mr-2 h-4 w-4" />
                             <span>Sign Out</span>
                         </CommandItem>
                     </CommandGroup>
                 </CommandList>
             </CommandDialog>
+            <Dialog open={isLogoutOpen} onOpenChange={setIsLogoutOpen}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle>Are you sure?</DialogTitle>
+                        <DialogDescription>
+                            You are about to log out of the {userRole === 'admin' ? 'Admin' : 'Operator'} Portal.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="sm:justify-end gap-2 mt-4">
+                        <DialogClose asChild>
+                            <button className="px-4 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-medium rounded-md transition-colors">
+                                Cancel
+                            </button>
+                        </DialogClose>
+                        <button
+                            onClick={() => {
+                                setIsLogoutOpen(false);
+                                logout();
+                            }}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+                        >
+                            Log Out
+                        </button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     )
 }

@@ -19,7 +19,7 @@ export function ProfileHeader({ student }: ProfileHeaderProps) {
     return (
         <div className={cn(
             "rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-colors duration-300 dark:border-slate-800",
-            isSuspended ? "bg-slate-100" : "bg-white"
+            isSuspended ? "bg-slate-100 dark:bg-slate-900" : "bg-white dark:bg-slate-950"
         )}>
             {/* Cover / Top Strip */}
             <div className={cn(
@@ -35,7 +35,7 @@ export function ProfileHeader({ student }: ProfileHeaderProps) {
                 <div className="flex flex-col md:flex-row items-start md:items-end -mt-12 gap-6">
 
                     {/* Avatar */}
-                    <div className="h-32 w-32 rounded-full border-4 border-white bg-slate-200 overflow-hidden flex items-center justify-center shadow-md">
+                    <div className="h-32 w-32 rounded-full border-4 border-white dark:border-slate-950 bg-slate-200 dark:bg-slate-800 overflow-hidden flex items-center justify-center shadow-md">
                         {student.photo ? (
                             <img src={student.photo} alt={student.name} className={cn("h-full w-full object-cover", isSuspended && "grayscale")} />
                         ) : (
@@ -46,23 +46,23 @@ export function ProfileHeader({ student }: ProfileHeaderProps) {
                     {/* Info */}
                     <div className="flex-1 mb-2">
                         <div className="flex items-center gap-3">
-                            <h1 className={cn("text-3xl font-bold", isSuspended ? "text-slate-500" : "text-slate-900")}>
+                            <h1 className={cn("text-3xl font-bold", isSuspended ? "text-slate-500 dark:text-slate-400" : "text-slate-900 dark:text-white")}>
                                 {student.name}
                             </h1>
                             {isSuspended && (
-                                <span className="px-3 py-1 bg-red-100 text-red-600 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1">
+                                <span className="px-3 py-1 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1">
                                     <AlertTriangle className="h-3 w-3" /> Suspended
                                 </span>
                             )}
                         </div>
-                        <p className="text-slate-500 font-mono mt-1">{student.regNum} • {Array.isArray(student.class) ? student.class.join(', ') : student.class}</p>
+                        <p className="text-slate-500 dark:text-slate-400 font-mono mt-1">{student.regNum} • {Array.isArray(student.class) ? student.class.join(', ') : student.class}</p>
                     </div>
 
                     {/* Danger Zone */}
                     <div className="flex flex-col items-end gap-2 mt-4 md:mt-0">
                         <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg dark:bg-slate-900 dark:border-slate-800">
                             <div className="text-right">
-                                <p className="text-xs font-bold text-slate-700">Suspend Student</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Suspend Student</p>
                                 <p className="text-[10px] text-slate-400">Restricts access</p>
                             </div>
                             <button
