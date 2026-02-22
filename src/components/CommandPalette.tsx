@@ -7,7 +7,8 @@ import {
     LogOut,
     Users,
     MessageSquare,
-    LayoutDashboard
+    LayoutDashboard,
+    Wallet
 } from "lucide-react"
 
 import {
@@ -77,6 +78,12 @@ export function CommandPalette() {
                             <MessageSquare className="mr-2 h-4 w-4" />
                             <span>Message Center</span>
                         </CommandItem>
+                        {userRole === 'admin' && (
+                            <CommandItem onSelect={() => runCommand(() => navigate('/admin/finance'))}>
+                                <Wallet className="mr-2 h-4 w-4" />
+                                <span>Finance Management</span>
+                            </CommandItem>
+                        )}
                     </CommandGroup>
                     <CommandSeparator />
                     <CommandGroup heading="Students">

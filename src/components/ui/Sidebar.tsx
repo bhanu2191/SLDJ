@@ -25,15 +25,16 @@ interface NavItem {
 
 interface SidebarProps {
     items: NavItem[];
+    className?: string;
 }
 
-export function Sidebar({ items }: SidebarProps) {
+export function Sidebar({ items, className }: SidebarProps) {
     const location = useLocation();
     const { logout, user } = useAuth();
     const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
     return (
-        <aside className="h-screen w-72 bg-primary dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 shadow-2xl z-50 overflow-hidden">
+        <aside className={cn("h-screen w-72 bg-primary dark:bg-slate-950 text-white flex flex-col shadow-2xl overflow-hidden", className)}>
             {/* Logo Section */}
             <div className="p-8 pb-4 flex items-center gap-4 relative z-10">
                 <motion.div

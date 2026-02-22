@@ -34,7 +34,7 @@ import nodemailer from 'nodemailer';
 import cron from 'node-cron'; // Import node-cron
 import smsService from './smsService.js'; // Import SMS Service
 import PDFDocument from 'pdfkit'; // Import PDFKit
-import xlsx from 'xlsx'; // Import xlsx for exports
+import ExcelJS from 'exceljs'; // Import exceljs for exports instead of missing xlsx
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -233,6 +233,20 @@ function initDB() {
             date TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(regNum) REFERENCES students(regNum)
+        )
+    `);
+
+    // Finance Records Table (Earnings & Expenses)
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS finance_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
+            category TEXT NOT NULL,
+            amount REAL NOT NULL,
+            description TEXT,
+            date TEXT NOT NULL,
+            reference TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
 }
@@ -894,29 +908,31 @@ app.whenReady().then(() => {
 
     ipcMain.handle('export-exam-results', async (event, { className, duration, data }) => {
         try {
-            // Prepare Data for Excel mapping
-            const exportData = data.map(item => ({
-                'Student ID': item.regNum,
-                'Student Name': item.name,
-                'Course': className,
-                'Duration': duration,
-                'Result': item.result
-            }));
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Exam Results');
 
-            // Create a new workbook and add the worksheet
-            const wb = xlsx.utils.book_new();
-            const ws = xlsx.utils.json_to_sheet(exportData);
-
-            // Configure columns width
-            ws['!cols'] = [
-                { wch: 15 }, // Student ID
-                { wch: 30 }, // Student Name
-                { wch: 20 }, // Course
-                { wch: 25 }, // Duration
-                { wch: 15 }  // Result
+            // Define columns
+            worksheet.columns = [
+                { header: 'Student ID', key: 'regNum', width: 15 },
+                { header: 'Student Name', key: 'name', width: 30 },
+                { header: 'Course', key: 'course', width: 20 },
+                { header: 'Duration', key: 'duration', width: 25 },
+                { header: 'Result', key: 'result', width: 15 }
             ];
 
-            xlsx.utils.book_append_sheet(wb, ws, "Exam Results");
+            // Add rows
+            data.forEach(item => {
+                worksheet.addRow({
+                    regNum: item.regNum,
+                    name: item.name,
+                    course: className,
+                    duration: duration,
+                    result: item.result
+                });
+            });
+
+            // Style header
+            worksheet.getRow(1).font = { bold: true };
 
             // Open Save Dialog
             const { filePath } = await dialog.showSaveDialog({
@@ -929,10 +945,10 @@ app.whenReady().then(() => {
 
             if (filePath) {
                 // Write to file
-                xlsx.writeFile(wb, filePath);
+                await workbook.xlsx.writeFile(filePath);
                 return { success: true, path: filePath };
             } else {
-                return { success: false, cancelled: true }; // User cancelled save dialog
+                return { success: false, cancelled: true };
             }
         } catch (error) {
             console.error("Error exporting exam results:", error);
@@ -1242,6 +1258,79 @@ app.whenReady().then(() => {
     ipcMain.handle('get-sms-logs', () => {
         // Return last 5 logs desc
         return db.prepare('SELECT * FROM sms_logs ORDER BY sent_at DESC LIMIT 5').all();
+    });
+
+    // --- IPC Handlers for General Finance ---
+    ipcMain.handle('get-finance-records', (event, { startDate, endDate, type }) => {
+        let query = 'SELECT * FROM finance_records WHERE 1=1';
+        const params = [];
+
+        if (startDate) {
+            query += ' AND date >= ?';
+            params.push(startDate);
+        }
+        if (endDate) {
+            query += ' AND date <= ?';
+            params.push(endDate);
+        }
+        if (type && type !== 'all') {
+            query += ' AND type = ?';
+            params.push(type);
+        }
+
+        query += ' ORDER BY date DESC, created_at DESC';
+        return db.prepare(query).all(...params);
+    });
+
+    ipcMain.handle('add-finance-record', (event, record) => {
+        const stmt = db.prepare(`
+            INSERT INTO finance_records (type, category, amount, description, date, reference)
+            VALUES (@type, @category, @amount, @description, @date, @reference)
+        `);
+        const info = stmt.run(record);
+        return { ...record, id: info.lastInsertRowid };
+    });
+
+    ipcMain.handle('delete-finance-record', (event, id) => {
+        db.prepare('DELETE FROM finance_records WHERE id = ?').run(id);
+        return id;
+    });
+
+    ipcMain.handle('get-finance-summary', (event, { startDate, endDate }) => {
+        // 1. Get Extra Income/Expense from finance_records
+        let financeQuery = 'SELECT type, SUM(amount) as total FROM finance_records WHERE 1=1';
+        const params = [];
+        if (startDate) { financeQuery += ' AND date >= ?'; params.push(startDate); }
+        if (endDate) { financeQuery += ' AND date <= ?'; params.push(endDate); }
+        financeQuery += ' GROUP BY type';
+
+        const financeStats = db.prepare(financeQuery).all(...params);
+
+        // 2. Get Student Payments (Revenue)
+        let paymentQuery = 'SELECT SUM(amount) as total FROM payments WHERE 1=1';
+        const pParams = [];
+        // Note: payments table uses 'date' which might be YYYY-MM-DD or other.
+        // If it's YYYY-MM-DD, we can use the same bounds.
+        if (startDate) { paymentQuery += ' AND date >= ?'; pParams.push(startDate); }
+        if (endDate) { paymentQuery += ' AND date <= ?'; pParams.push(endDate); }
+
+        const studentRevenue = db.prepare(paymentQuery).get(...pParams).total || 0;
+
+        let extraIncome = 0;
+        let totalExpense = 0;
+
+        financeStats.forEach(s => {
+            if (s.type === 'income') extraIncome = s.total;
+            else if (s.type === 'expense') totalExpense = s.total;
+        });
+
+        return {
+            studentRevenue,
+            extraIncome,
+            totalIncome: studentRevenue + extraIncome,
+            totalExpense,
+            netProfit: (studentRevenue + extraIncome) - totalExpense
+        };
     });
 
     // --- AUTOMATED SCHEDULER LOGIC ---

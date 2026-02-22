@@ -16,6 +16,7 @@ import Payments from './pages/operator/Payments';
 import MessageCenter from './pages/admin/MessageCenter';
 import { AdminStudentList } from './pages/admin/StudentList';
 import ExamResults from './pages/shared/ExamResults';
+import Finance from './pages/admin/Finance';
 
 // Placeholders for new pages to avoid build errors while we implement them
 // const Messages = () => <div>Messages Content</div>;
@@ -40,6 +41,7 @@ function App() {
             <Route path="students/:id" element={<StudentProfile />} />
             <Route path="exams" element={<ExamResults isAdmin={true} />} />
             <Route path="messages" element={<MessageCenter />} />
+            <Route path="finance" element={<Finance />} />
             <Route path="settings" element={<SystemSettings />} />
           </Route>
 

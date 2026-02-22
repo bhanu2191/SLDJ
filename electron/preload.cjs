@@ -55,6 +55,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     sendOtp: (phone) => ipcRenderer.invoke('send-2fa-otp', { phone }),
     verifyOtp: (code) => ipcRenderer.invoke('verify-2fa-otp', code),
 
+    // Finance API
+    getFinanceRecords: (params) => ipcRenderer.invoke('get-finance-records', params),
+    addFinanceRecord: (record) => ipcRenderer.invoke('add-finance-record', record),
+    deleteFinanceRecord: (id) => ipcRenderer.invoke('delete-finance-record', id),
+    getFinanceSummary: (params) => ipcRenderer.invoke('get-finance-summary', params),
+
     // Debug
     checkDbSchema: () => ipcRenderer.invoke('check-db-schema'),
 });

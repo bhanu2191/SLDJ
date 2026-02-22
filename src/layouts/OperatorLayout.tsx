@@ -41,17 +41,16 @@ export function OperatorLayout() {
             )}
 
             {/* Reusable Sidebar (Desktop) */}
-            <div className="hidden lg:block relative z-30">
-                <Sidebar items={navItems} />
+            <div className="hidden lg:block">
+                <Sidebar items={navItems} className="fixed left-0 top-0 z-30" />
             </div>
 
             {/* Mobile Sidebar Placeholder - Same strategy as AdminLayout */}
             <aside className={`
-                fixed inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out lg:hidden
+                fixed inset-y-0 left-0 z-50 w-72 transform lg:hidden transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
-                <div className="p-4 font-bold text-primary">SLDJ Operator</div>
-                {/* ... mobile nav logic ... */}
+                <Sidebar items={navItems} />
             </aside>
 
             {/* Main Content */}
