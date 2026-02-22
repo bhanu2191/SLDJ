@@ -2,7 +2,6 @@ import { Bell, Search, Menu } from 'lucide-react';
 import { ModeToggle } from '@/components/mode-toggle';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils'; // Ensure utils exists
 
 export function Header() {
     const currentDate = new Date().toLocaleDateString('en-US', {

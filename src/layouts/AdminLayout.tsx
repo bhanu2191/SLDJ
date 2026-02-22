@@ -10,6 +10,7 @@ export function AdminLayout() {
     const { userRole, isLoading } = useAuth();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     if (isLoading) {
         return (
@@ -45,7 +46,7 @@ export function AdminLayout() {
 
             {/* Reusable Sidebar (Desktop) */}
             <div className="hidden lg:block relative z-30">
-                <Sidebar items={navItems} />
+                <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
             </div>
 
             {/* Mobile Sidebar (Simplified for now or duplicate rendering with mobile styles if needed) 
@@ -59,7 +60,7 @@ export function AdminLayout() {
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
                 <div className="h-full overflow-y-auto">
-                    <Sidebar items={navItems} />
+                    <Sidebar items={navItems} isCollapsed={false} setIsCollapsed={() => { }} />
                 </div>
                 {/* Note: Sidebar component has fixed positioning in its className, might need adjustment for mobile context.
                     Actually, let's just render it. The fixed positioning in Sidebar.tsx (fixed left-0 top-0) will overlap.
@@ -75,7 +76,7 @@ export function AdminLayout() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col overflow-hidden lg:ml-72 transition-all duration-300">
+            <main className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
                 {/* Mobile Header */}
 
                 <header className="h-16 flex items-center px-4 bg-white border-b border-gray-200 lg:hidden dark:bg-slate-900 dark:border-slate-800 justify-between">

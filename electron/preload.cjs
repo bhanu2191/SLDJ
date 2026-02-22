@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
     getRevenueChart: () => ipcRenderer.invoke('get-revenue-chart'),
     getRecentActivity: () => ipcRenderer.invoke('get-recent-activity'),
+    getUpcomingBirthdays: () => ipcRenderer.invoke('get-upcoming-birthdays'),
 
     // Class Categories API
     getClassCategories: () => ipcRenderer.invoke('get-class-categories'),
