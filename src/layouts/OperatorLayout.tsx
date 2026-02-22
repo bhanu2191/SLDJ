@@ -54,7 +54,7 @@ export function OperatorLayout() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-h-screen overflow-hidden lg:ml-72 transition-all duration-300">
+            <main className="flex-1 flex flex-col min-h-screen overflow-hidden lg:ml-64 transition-all duration-300">
                 {/* Mobile Header */}
 
                 <header className="h-16 flex items-center px-4 bg-white border-b border-gray-200 lg:hidden dark:bg-slate-900 dark:border-slate-800 justify-between">

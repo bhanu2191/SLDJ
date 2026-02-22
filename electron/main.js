@@ -834,6 +834,59 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Exam Results ---
+    ipcMain.handle('get-upcoming-birthdays', () => {
+        const students = db.prepare("SELECT regNum, name, dob, class FROM students WHERE dob IS NOT NULL AND dob != ''").all();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcoming = students.filter(s => {
+            const dob = new Date(s.dob);
+            if (isNaN(dob.getTime())) return false;
+
+            const nextBday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+            if (nextBday.getTime() < today.getTime()) {
+                nextBday.setFullYear(today.getFullYear() + 1);
+            }
+
+            const diffTime = nextBday.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            return diffDays >= 0 && diffDays <= 5;
+        });
+
+        upcoming.sort((a, b) => {
+            const aDob = new Date(a.dob);
+            const bDob = new Date(b.dob);
+            const aNext = new Date(today.getFullYear(), aDob.getMonth(), aDob.getDate());
+            if (aNext.getTime() < today.getTime()) aNext.setFullYear(today.getFullYear() + 1);
+            const bNext = new Date(today.getFullYear(), bDob.getMonth(), bDob.getDate());
+            if (bNext.getTime() < today.getTime()) bNext.setFullYear(today.getFullYear() + 1);
+
+            return aNext.getTime() - bNext.getTime();
+        });
+
+        return upcoming.map(s => {
+            const dob = new Date(s.dob);
+            const nextBday = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
+            if (nextBday.getTime() < today.getTime()) nextBday.setFullYear(today.getFullYear() + 1);
+            const diffDays = Math.ceil((nextBday.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            let classes = [];
+            try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
+            if (!Array.isArray(classes)) classes = [s.class];
+
+            return {
+                regNum: s.regNum,
+                name: s.name,
+                dob: s.dob,
+                classes: classes,
+                daysUntil: diffDays,
+                nextBirthday: nextBday.toISOString().split('T')[0]
+            };
+        });
+    });
+
+    // --- IPC Handlers for Exam Results ---
     ipcMain.handle('get-exam-results', (event, { className, statusFilter = 'All' }) => {
         try {
             // Get all students enrolled in the class using a LIKE clause since class is JSON string
@@ -908,6 +961,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('export-exam-results', async (event, { className, duration, data }) => {
         try {
+<<<<<<< HEAD
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Exam Results');
 
@@ -918,6 +972,32 @@ app.whenReady().then(() => {
                 { header: 'Course', key: 'course', width: 20 },
                 { header: 'Duration', key: 'duration', width: 25 },
                 { header: 'Result', key: 'result', width: 15 }
+=======
+            // Prepare Data for Excel mapping
+            const exportData = data.map(item => ({
+                'Student ID': item.regNum,
+                'Student Name': item.name,
+                'Course': className,
+                'Duration': duration,
+                'Start Date': item.startDate || 'Not Set',
+                'End Date': item.endDate || 'Not Set',
+                'Result': item.result
+            }));
+
+            // Create a new workbook and add the worksheet
+            const wb = xlsx.utils.book_new();
+            const ws = xlsx.utils.json_to_sheet(exportData);
+
+            // Configure columns width
+            ws['!cols'] = [
+                { wch: 15 }, // Student ID
+                { wch: 30 }, // Student Name
+                { wch: 20 }, // Course
+                { wch: 25 }, // Duration
+                { wch: 15 }, // Start Date
+                { wch: 15 }, // End Date
+                { wch: 15 }  // Result
+>>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
             ];
 
             // Add rows

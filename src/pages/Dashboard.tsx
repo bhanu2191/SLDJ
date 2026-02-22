@@ -1,5 +1,6 @@
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { UpcomingBirthdays } from '@/components/dashboard/UpcomingBirthdays';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { Users, GraduationCap, CreditCard, TrendingUp } from 'lucide-react';
 
@@ -57,8 +58,9 @@ export function Dashboard() {
                 {/* Chart Section */}
                 <RevenueChart />
 
-                {/* Activity Feed */}
-                <div className="col-span-1">
+                {/* Activity Feed and Birthdays */}
+                <div className="col-span-1 flex flex-col gap-6">
+                    <UpcomingBirthdays />
                     <ActivityFeed />
                 </div>
             </div>
