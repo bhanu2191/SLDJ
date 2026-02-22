@@ -45,6 +45,11 @@ declare global {
 
             // Payment Reminders
             triggerPaymentReminders: () => Promise<{ success: boolean; message?: string; sent?: number; failed?: number }>;
+
+            // Exam Results API
+            getExamResults: (params: { className: string; statusFilter?: string }) => Promise<any[]>;
+            saveExamResults: (params: { className: string; results: any[] }) => Promise<{ success: boolean }>;
+            exportExamResults: (params: { className: string; duration: string; data: any[] }) => Promise<{ success: boolean; path?: string; cancelled?: boolean }>;
         };
     }
 }

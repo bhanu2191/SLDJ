@@ -1,7 +1,7 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAuth } from '../context/AuthContext';
-import { Users, UserPlus, MessageSquare, Menu, CreditCard } from 'lucide-react';
+import { Users, UserPlus, MessageSquare, Menu, GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 import { Sidebar } from '@/components/ui/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +26,7 @@ export function OperatorLayout() {
     const navItems = [
         { label: 'Registration', path: '/operator/register', icon: UserPlus },
         { label: 'Students', path: '/operator/students', icon: Users },
+        { label: 'Exam Results', path: '/operator/exams', icon: GraduationCap },
         { label: 'Messages', path: '/operator/messages', icon: MessageSquare },
     ];
 

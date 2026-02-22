@@ -46,6 +46,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Payment Reminders
     triggerPaymentReminders: () => ipcRenderer.invoke('trigger-payment-reminders'),
 
+    // Exam Results API
+    getExamResults: (params) => ipcRenderer.invoke('get-exam-results', params),
+    saveExamResults: (params) => ipcRenderer.invoke('save-exam-results', params),
+    exportExamResults: (params) => ipcRenderer.invoke('export-exam-results', params),
+
     // 2FA Authentication
     sendOtp: (phone) => ipcRenderer.invoke('send-2fa-otp', { phone }),
     verifyOtp: (code) => ipcRenderer.invoke('verify-2fa-otp', code),

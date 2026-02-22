@@ -1,7 +1,7 @@
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { ModeToggle } from '@/components/mode-toggle';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Users, UserCog, Settings, Menu, CreditCard, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Users, UserCog, Settings, Menu, CreditCard, MessageSquare, GraduationCap } from 'lucide-react';
 import { useState } from 'react';
 import { Sidebar } from '@/components/ui/Sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,6 +26,7 @@ export function AdminLayout() {
     const navItems = [
         { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
         { label: 'Payments', path: '/admin/payments', icon: CreditCard },
+        { label: 'Exam Results', path: '/admin/exams', icon: GraduationCap },
         { label: 'User Management', path: '/admin/users', icon: UserCog },
         { label: 'Students', path: '/admin/students', icon: Users },
         { label: 'Message Center', path: '/admin/messages', icon: MessageSquare },

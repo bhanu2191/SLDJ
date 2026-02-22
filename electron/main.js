@@ -34,6 +34,7 @@ import nodemailer from 'nodemailer';
 import cron from 'node-cron'; // Import node-cron
 import smsService from './smsService.js'; // Import SMS Service
 import PDFDocument from 'pdfkit'; // Import PDFKit
+import xlsx from 'xlsx'; // Import xlsx for exports
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -219,6 +220,19 @@ function initDB() {
             message TEXT NOT NULL,
             status TEXT,
             sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    // Exam Results Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS exam_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            regNum TEXT NOT NULL,
+            class_name TEXT NOT NULL,
+            result TEXT CHECK(result IN ('Pass', 'Fail', 'None')) DEFAULT 'None',
+            date TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(regNum) REFERENCES students(regNum)
         )
     `);
 }
@@ -805,14 +819,135 @@ app.whenReady().then(() => {
         `).all();
     });
 
+    // --- IPC Handlers for Exam Results ---
+    ipcMain.handle('get-exam-results', (event, { className, statusFilter = 'All' }) => {
+        try {
+            // Get all students enrolled in the class using a LIKE clause since class is JSON string
+            const studentsStmt = db.prepare(`
+                SELECT regNum, name, class 
+                FROM students 
+                WHERE class LIKE ?
+            `);
+            const students = studentsStmt.all(`%"${className}"%`);
+
+            // Fetch existing results for this class
+            const resultsStmt = db.prepare(`
+                SELECT regNum, result, date
+                FROM exam_results 
+                WHERE class_name = ?
+            `);
+            const results = resultsStmt.all(className);
+            const resultMap = {};
+            results.forEach(r => resultMap[r.regNum] = { result: r.result, date: r.date });
+
+            // Merge students with their results
+            let merged = students.map(s => {
+                const existing = resultMap[s.regNum];
+                return {
+                    regNum: s.regNum,
+                    name: s.name,
+                    className: className,
+                    result: existing ? existing.result : 'None',
+                    date: existing ? existing.date : new Date().toISOString().split('T')[0]
+                };
+            });
+
+            // Apply filter
+            if (statusFilter !== 'All') {
+                merged = merged.filter(m => m.result === statusFilter);
+            }
+
+            return merged;
+        } catch (error) {
+            console.error("Error getting exam results:", error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('save-exam-results', (event, { className, results }) => {
+        try {
+            // SQLite doesn't have true UPSERT without UNIQUE constraint on multiple columns,
+            // so we will manually check and strictly update or insert per student/class combination.
+
+            const existingStmt = db.prepare('SELECT id FROM exam_results WHERE regNum = ? AND class_name = ?');
+            const updateStmt = db.prepare('UPDATE exam_results SET result = ?, date = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?');
+            const insertStmt = db.prepare('INSERT INTO exam_results (regNum, class_name, result, date) VALUES (?, ?, ?, ?)');
+
+            const transaction = db.transaction((updates) => {
+                for (const item of updates) {
+                    const existing = existingStmt.get(item.regNum, className);
+                    if (existing) {
+                        updateStmt.run(item.result, item.date, existing.id);
+                    } else {
+                        insertStmt.run(item.regNum, className, item.result, item.date);
+                    }
+                }
+            });
+
+            transaction(results);
+            return { success: true };
+        } catch (error) {
+            console.error("Error saving exam results:", error);
+            throw error;
+        }
+    });
+
+    ipcMain.handle('export-exam-results', async (event, { className, duration, data }) => {
+        try {
+            // Prepare Data for Excel mapping
+            const exportData = data.map(item => ({
+                'Student ID': item.regNum,
+                'Student Name': item.name,
+                'Course': className,
+                'Duration': duration,
+                'Result': item.result
+            }));
+
+            // Create a new workbook and add the worksheet
+            const wb = xlsx.utils.book_new();
+            const ws = xlsx.utils.json_to_sheet(exportData);
+
+            // Configure columns width
+            ws['!cols'] = [
+                { wch: 15 }, // Student ID
+                { wch: 30 }, // Student Name
+                { wch: 20 }, // Course
+                { wch: 25 }, // Duration
+                { wch: 15 }  // Result
+            ];
+
+            xlsx.utils.book_append_sheet(wb, ws, "Exam Results");
+
+            // Open Save Dialog
+            const { filePath } = await dialog.showSaveDialog({
+                title: 'Export Exam Results',
+                defaultPath: `Exam_Results_${className.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`,
+                filters: [
+                    { name: 'Excel Workbook', extensions: ['xlsx'] }
+                ]
+            });
+
+            if (filePath) {
+                // Write to file
+                xlsx.writeFile(wb, filePath);
+                return { success: true, path: filePath };
+            } else {
+                return { success: false, cancelled: true }; // User cancelled save dialog
+            }
+        } catch (error) {
+            console.error("Error exporting exam results:", error);
+            throw error;
+        }
+    });
+
     ipcMain.handle('get-revenue-by-class', () => {
         return db.prepare(`
             SELECT class, SUM(amount) as total 
             FROM payments 
             WHERE class IS NOT NULL 
-            GROUP BY class 
-            ORDER BY total DESC
-        `).all();
+            GROUP BY class
+        ORDER BY total DESC
+            `).all();
     });
 
     ipcMain.handle('get-monthly-revenue-trend', () => {
@@ -904,7 +1039,7 @@ app.whenReady().then(() => {
 
         // HTML Template
         const htmlContent = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+        < div style = "font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;" >
                 <div style="text-align: center; background-color: #f8fafc; padding: 20px; border-radius: 10px 10px 0 0;">
                     <img src="cid:logo" alt="SL Dream Japan" style="height: 80px; margin-bottom: 10px;" />
                     <h1 style="color: #FF0000; margin: 0;">SL Dream Japan</h1>
@@ -933,14 +1068,14 @@ app.whenReady().then(() => {
                         <p>&copy; ${new Date().getFullYear()} SL Dream Japan Institute. All rights reserved.</p>
                     </div>
                 </div>
-            </div>
+            </div >
         `;
 
         try {
             const mailOptions = {
                 from: '"SL Dream Japan" <noreply@sldreamjapan.com>',
                 to: email,
-                subject: `Payment Receipt - ${receiptNo}`,
+                subject: `Payment Receipt - ${receiptNo} `,
                 html: htmlContent,
                 attachments: [
                     {
@@ -954,13 +1089,13 @@ app.whenReady().then(() => {
             // Attach PDF if generated
             if (pdfBuffer) {
                 mailOptions.attachments.push({
-                    filename: `Receipt-${receiptNo}.pdf`,
+                    filename: `Receipt - ${receiptNo}.pdf`,
                     content: pdfBuffer
                 });
             }
 
             await transporter.sendMail(mailOptions);
-            console.log(`Email sent successfully to ${email}`);
+            console.log(`Email sent successfully to ${email} `);
             return { success: true };
         } catch (error) {
             console.error("Failed to send email:", error);
@@ -1023,7 +1158,7 @@ app.whenReady().then(() => {
                 dialog.showMessageBox(mainWindow, {
                     type: 'info',
                     title: 'Developer/Mock OTP',
-                    message: `Your Login Code: ${code}`,
+                    message: `Your Login Code: ${code} `,
                     detail: 'SMS Gateway is not configured. Use this code to login and configure SMS settings.',
                     buttons: ['OK']
                 });
@@ -1044,7 +1179,7 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('verify-2fa-otp', (event, code) => {
-        console.log(`[AUTH] Verifying OTP: Input=${code}, Actual=${otpStore.code}`);
+        console.log(`[AUTH] Verifying OTP: Input = ${code}, Actual = ${otpStore.code} `);
 
         if (!otpStore.code || !otpStore.expires) {
             return { success: false, error: "No OTP request found. Please try again." };
@@ -1094,7 +1229,7 @@ app.whenReady().then(() => {
                 );
                 if (res.success) successCount++; else failCount++;
             } catch (e) {
-                console.error(`Failed to send to ${phone}`, e);
+                console.error(`Failed to send to ${phone} `, e);
                 failCount++;
                 db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
                     phone, message, 'error'
@@ -1113,7 +1248,7 @@ app.whenReady().then(() => {
     let scheduledTask = null;
 
     async function checkAndSendReminders(isManual = false) {
-        console.log(`[REMINDER] Starting check. Manual: ${isManual}`);
+        console.log(`[REMINDER] Starting check.Manual: ${isManual} `);
         const now = new Date();
         const day = now.getDate();
         const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -1128,7 +1263,7 @@ app.whenReady().then(() => {
         // 2. Check Date (Skip if manual)
         const targetDate = settings.reminderDate || 7; // Default 7th
         if (!isManual && day !== targetDate) {
-            console.log(`[REMINDER] Today is ${day}, target is ${targetDate}. Skipping.`);
+            console.log(`[REMINDER] Today is ${day}, target is ${targetDate}.Skipping.`);
             return { success: true, message: "Not date yet" };
         }
 
@@ -1156,11 +1291,11 @@ app.whenReady().then(() => {
 
             if (pendingClasses.length > 0) {
                 // Send reminder
-                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
+                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත.කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
 
                 try {
                     const res = await smsService.sendSMS(s.phone, message, settings);
-                    console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success}`);
+                    console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success} `);
 
                     db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
                         s.phone, message, res.success ? 'sent' : 'failed'
@@ -1168,7 +1303,7 @@ app.whenReady().then(() => {
 
                     if (res.success) sentCount++; else failCount++;
                 } catch (e) {
-                    console.error(`Failed to send reminder to ${s.phone}`, e);
+                    console.error(`Failed to send reminder to ${s.phone} `, e);
                     failCount++;
                 }
             }
@@ -1194,7 +1329,7 @@ app.whenReady().then(() => {
         const [hour, minute] = time.split(':');
 
         // Cron Format: Minute Hour * * *
-        const cronExpression = `${minute || 0} ${hour || 9} * * *`;
+        const cronExpression = `${minute || 0} ${hour || 9} * * * `;
 
         console.log(`[SCHEDULER] Starting with schedule: ${cronExpression} (Date: ${settings.reminderDate || 7})`);
 
