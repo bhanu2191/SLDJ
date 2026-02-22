@@ -262,8 +262,7 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
 
                     {isAdmin && (
                         <Button
-                            variant="outline"
-                            className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
+                            className="gap-2 bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 dark:hover:bg-emerald-950/30"
                             onClick={() => setIsExportOpen(true)}
                         >
                             <Download className="h-4 w-4" />
