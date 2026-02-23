@@ -61,6 +61,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addFinanceRecord: (record) => ipcRenderer.invoke('add-finance-record', record),
     deleteFinanceRecord: (id) => ipcRenderer.invoke('delete-finance-record', id),
     getFinanceSummary: (params) => ipcRenderer.invoke('get-finance-summary', params),
+    getFinanceCategories: (type) => ipcRenderer.invoke('get-finance-categories', type),
+    addFinanceCategory: (data) => ipcRenderer.invoke('add-finance-category', data),
+    deleteFinanceCategory: (id) => ipcRenderer.invoke('delete-finance-category', id),
 
     // Debug
     checkDbSchema: () => ipcRenderer.invoke('check-db-schema'),

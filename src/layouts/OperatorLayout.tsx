@@ -10,6 +10,7 @@ export function OperatorLayout() {
     const { userRole, isLoading } = useAuth();
     const location = useLocation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     if (isLoading) {
         return (
@@ -41,8 +42,8 @@ export function OperatorLayout() {
             )}
 
             {/* Reusable Sidebar (Desktop) */}
-            <div className="hidden lg:block">
-                <Sidebar items={navItems} className="fixed left-0 top-0 z-30" />
+            <div className="hidden lg:block relative z-30">
+                <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
             </div>
 
             {/* Mobile Sidebar Placeholder - Same strategy as AdminLayout */}
@@ -50,11 +51,13 @@ export function OperatorLayout() {
                 fixed inset-y-0 left-0 z-50 w-72 transform lg:hidden transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
-                <Sidebar items={navItems} />
+                <div className="h-full overflow-y-auto">
+                    <Sidebar items={navItems} isCollapsed={false} setIsCollapsed={() => { }} />
+                </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 flex flex-col min-h-screen overflow-hidden lg:ml-64 transition-all duration-300">
+            <main className={`flex-1 flex flex-col min-h-screen overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}`}>
                 {/* Mobile Header */}
 
                 <header className="h-16 flex items-center px-4 bg-white border-b border-gray-200 lg:hidden dark:bg-slate-900 dark:border-slate-800 justify-between">
