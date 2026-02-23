@@ -23,6 +23,11 @@ export const SystemSettings = () => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    // Finance Categories State
+    const [financeCategories, setFinanceCategories] = useState<{ id: number, type: 'income' | 'expense', name: string }[]>([]);
+    const [newFinanceCat, setNewFinanceCat] = useState({ type: 'expense' as 'income' | 'expense', name: '' });
+    const [financeLoading, setFinanceLoading] = useState(false);
+
     // SMS Settings State
     const [smsSettings, setSmsSettings] = useState({
         provider: 'DefaultGateway',
@@ -41,7 +46,53 @@ export const SystemSettings = () => {
     useEffect(() => {
         loadCategories();
         loadSmsSettings();
+        loadFinanceCategories();
     }, []);
+
+    const loadFinanceCategories = async () => {
+        try {
+            // @ts-ignore
+            const data = await window.electronAPI.getFinanceCategories();
+            setFinanceCategories(data);
+        } catch (error) {
+            console.error("Failed to load finance categories:", error);
+        }
+    };
+
+    const handleAddFinanceCategory = async () => {
+        if (!newFinanceCat.name.trim()) return;
+        setFinanceLoading(true);
+        try {
+            // @ts-ignore
+            await window.electronAPI.addFinanceCategory(newFinanceCat);
+            setNewFinanceCat({ ...newFinanceCat, name: '' });
+            await loadFinanceCategories();
+        } catch (error) {
+            console.error("Failed to add finance category:", error);
+        } finally {
+            setFinanceLoading(false);
+        }
+    };
+
+    const handleDeleteFinanceCategory = async (id: number) => {
+        const result = await Swal.fire({
+            title: 'Delete Category?',
+            text: "Warning: Transactions in this category will also be deleted.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                // @ts-ignore
+                await window.electronAPI.deleteFinanceCategory(id);
+                await loadFinanceCategories();
+            } catch (error) {
+                console.error("Failed to delete finance category:", error);
+            }
+        }
+    };
 
     const loadSmsSettings = async () => {
         try {
@@ -179,8 +230,9 @@ export const SystemSettings = () => {
             </div>
 
             <Tabs defaultValue="classes" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 max-w-md mb-8">
+                <TabsList className="grid w-full grid-cols-4 max-w-xl mb-8">
                     <TabsTrigger value="classes">Classes & Fees</TabsTrigger>
+                    <TabsTrigger value="finance">Finance Topics</TabsTrigger>
                     <TabsTrigger value="sms">SMS Gateway</TabsTrigger>
                     <TabsTrigger value="reminders">Reminders</TabsTrigger>
                 </TabsList>
@@ -321,6 +373,88 @@ export const SystemSettings = () => {
                                 {smsSaving ? 'Saving...' : 'Update Configuration'}
                             </Button>
                         </CardFooter>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="finance">
+                    <Card className="dark:border-slate-800">
+                        <CardHeader>
+                            <CardTitle>Finance Categories</CardTitle>
+                            <CardDescription>Manage income and expense topics for financial tracking.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex flex-col md:flex-row gap-4 p-4 border rounded-xl bg-slate-50 dark:bg-slate-900/50 dark:border-slate-800">
+                                <div className="flex-1 space-y-2">
+                                    <Label>Category Name</Label>
+                                    <Input
+                                        placeholder="e.g. Electricity, Student Extra Fee"
+                                        value={newFinanceCat.name}
+                                        onChange={(e) => setNewFinanceCat({ ...newFinanceCat, name: e.target.value })}
+                                        className="dark:bg-slate-950 dark:border-slate-800"
+                                    />
+                                </div>
+                                <div className="w-full md:w-48 space-y-2">
+                                    <Label>Type</Label>
+                                    <select
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-950 dark:border-slate-800"
+                                        value={newFinanceCat.type}
+                                        onChange={(e) => setNewFinanceCat({ ...newFinanceCat, type: e.target.value as any })}
+                                    >
+                                        <option value="expense">Expense (-)</option>
+                                        <option value="income">Income (+)</option>
+                                    </select>
+                                </div>
+                                <div className="flex items-end">
+                                    <Button onClick={handleAddFinanceCategory} disabled={financeLoading} className="w-full md:w-auto h-10 gap-2">
+                                        <Plus size={16} /> Add Topic
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold flex items-center gap-2 text-emerald-600">
+                                        Income Topics
+                                    </h4>
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {financeCategories.filter(c => c.type === 'income').map(cat => (
+                                            <div key={cat.id} className="flex items-center justify-between p-3 rounded-lg border bg-emerald-50/30 dark:bg-emerald-900/10 dark:border-emerald-900/30 group">
+                                                <span className="text-sm font-medium">{cat.name}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                    onClick={() => handleDeleteFinanceCategory(cat.id)}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h4 className="text-sm font-bold flex items-center gap-2 text-red-600">
+                                        Expense Topics
+                                    </h4>
+                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {financeCategories.filter(c => c.type === 'expense').map(cat => (
+                                            <div key={cat.id} className="flex items-center justify-between p-3 rounded-lg border bg-red-50/30 dark:bg-red-900/10 dark:border-red-900/30 group">
+                                                <span className="text-sm font-medium">{cat.name}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                    onClick={() => handleDeleteFinanceCategory(cat.id)}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
                     </Card>
                 </TabsContent>
 

@@ -249,7 +249,19 @@ function initDB() {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
+
+    // Finance Categories Table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS finance_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
+            name TEXT NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
 }
+initDB();
 
 // --- PDF Generation Helper ---
 function generateReceiptPDF(data, logoPath) {
@@ -1384,6 +1396,34 @@ app.whenReady().then(() => {
             totalExpense,
             netProfit: (studentRevenue + extraIncome) - totalExpense
         };
+    });
+
+    ipcMain.handle('get-finance-categories', (event, type) => {
+        let query = 'SELECT * FROM finance_categories';
+        const params = [];
+        if (type) {
+            query += ' WHERE type = ?';
+            params.push(type);
+        }
+        query += ' ORDER BY name ASC';
+        return db.prepare(query).all(...params);
+    });
+
+    ipcMain.handle('add-finance-category', (event, { type, name }) => {
+        try {
+            const stmt = db.prepare('INSERT INTO finance_categories (type, name) VALUES (?, ?)');
+            const info = stmt.run(type, name);
+            return { id: info.lastInsertRowid, type, name };
+        } catch (err) {
+            console.error("Failed to add finance category:", err);
+            throw err;
+        }
+    });
+
+    ipcMain.handle('delete-finance-category', (event, id) => {
+        db.prepare('DELETE FROM finance_records WHERE category IN (SELECT name FROM finance_categories WHERE id = ?)').run(id);
+        db.prepare('DELETE FROM finance_categories WHERE id = ?').run(id);
+        return id;
     });
 
     // --- AUTOMATED SCHEDULER LOGIC ---

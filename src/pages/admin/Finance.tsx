@@ -60,10 +60,6 @@ interface FinanceSummary {
     netProfit: number;
 }
 
-const CATEGORIES = {
-    income: ['Student Fee (Extra)', 'Donation', 'Book Sale', 'Exam Fee', 'Other Income'],
-    expense: ['Document Fee', 'Agent Fee', 'Salary', 'Rent', 'Utility', 'Marketing', 'Maintenance', 'Misc Expense']
-};
 
 export default function Finance() {
     const [records, setRecords] = useState<FinanceRecord[]>([]);
@@ -77,6 +73,7 @@ export default function Finance() {
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [filterType, setFilterType] = useState('all');
+    const [categories, setCategories] = useState<{ income: string[], expense: string[] }>({ income: [], expense: [] });
 
     // Date Filters
     const [startDate, setStartDate] = useState(() => {
@@ -98,7 +95,29 @@ export default function Finance() {
 
     useEffect(() => {
         loadData();
+        loadCategories();
     }, [startDate, endDate, filterType]);
+
+    const loadCategories = async () => {
+        try {
+            // @ts-ignore
+            const items = await window.electronAPI.getFinanceCategories();
+            if (items && items.length > 0) {
+                const grouped = items.reduce((acc: any, cat: any) => {
+                    acc[cat.type].push(cat.name);
+                    return acc;
+                }, { income: [], expense: [] });
+                setCategories(grouped);
+
+                // Update default category if needed
+                if (!grouped[newRecord.type].includes(newRecord.category)) {
+                    setNewRecord(prev => ({ ...prev, category: grouped[prev.type][0] || '' }));
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load categories:", error);
+        }
+    };
 
     const loadData = async () => {
         try {
@@ -199,7 +218,7 @@ export default function Finance() {
                                     <Select
                                         value={newRecord.type}
                                         onValueChange={(val: 'income' | 'expense') =>
-                                            setNewRecord({ ...newRecord, type: val, category: CATEGORIES[val][0] })
+                                            setNewRecord({ ...newRecord, type: val, category: categories[val][0] || '' })
                                         }
                                     >
                                         <SelectTrigger>
@@ -221,7 +240,7 @@ export default function Finance() {
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {CATEGORIES[newRecord.type].map(cat => (
+                                            {categories[newRecord.type].map((cat: string) => (
                                                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                             ))}
                                         </SelectContent>
