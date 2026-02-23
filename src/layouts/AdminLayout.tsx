@@ -46,13 +46,8 @@ export function AdminLayout() {
             )}
 
             {/* Reusable Sidebar (Desktop) */}
-<<<<<<< HEAD
-            <div className="hidden lg:block">
-                <Sidebar items={navItems} className="fixed left-0 top-0 z-30" />
-=======
             <div className="hidden lg:block relative z-30">
                 <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
->>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
             </div>
 
             {/* Mobile Sidebar (Simplified for now or duplicate rendering with mobile styles if needed) 
@@ -65,24 +60,9 @@ export function AdminLayout() {
                 fixed inset-y-0 left-0 z-50 w-72 transform lg:hidden transition-transform duration-300 ease-in-out
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
             `}>
-<<<<<<< HEAD
-                <Sidebar items={navItems} />
-=======
                 <div className="h-full overflow-y-auto">
                     <Sidebar items={navItems} isCollapsed={false} setIsCollapsed={() => { }} />
                 </div>
-                {/* Note: Sidebar component has fixed positioning in its className, might need adjustment for mobile context.
-                    Actually, let's just render it. The fixed positioning in Sidebar.tsx (fixed left-0 top-0) will overlap.
-                    We should probably remove 'fixed' from Sidebar.tsx and let the parent handle positioning in a real refractoring,
-                    but for this step I will leave it and just accept duplicates on mobile or just hide it.
-                    
-                    Wait, if I use Sidebar inside this aside, and Sidebar has `fixed`, it will be fixed to viewport, not container.
-                    Let's just use the Sidebar component for Desktop for now and keep the mobile drawer simple or assume Sidebar handles itself.
-                    
-                    Actually, looking at Sidebar.tsx, it has `fixed left-0 top-0`. This makes it hard to use in a mobile drawer that slides in.
-                    For this iteration, I will ONLY use the new Sidebar for Desktop.
-                */}
->>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
             </aside>
 
             {/* Main Content */}

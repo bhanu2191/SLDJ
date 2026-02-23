@@ -961,7 +961,6 @@ app.whenReady().then(() => {
 
     ipcMain.handle('export-exam-results', async (event, { className, duration, data }) => {
         try {
-<<<<<<< HEAD
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Exam Results');
 
@@ -972,32 +971,6 @@ app.whenReady().then(() => {
                 { header: 'Course', key: 'course', width: 20 },
                 { header: 'Duration', key: 'duration', width: 25 },
                 { header: 'Result', key: 'result', width: 15 }
-=======
-            // Prepare Data for Excel mapping
-            const exportData = data.map(item => ({
-                'Student ID': item.regNum,
-                'Student Name': item.name,
-                'Course': className,
-                'Duration': duration,
-                'Start Date': item.startDate || 'Not Set',
-                'End Date': item.endDate || 'Not Set',
-                'Result': item.result
-            }));
-
-            // Create a new workbook and add the worksheet
-            const wb = xlsx.utils.book_new();
-            const ws = xlsx.utils.json_to_sheet(exportData);
-
-            // Configure columns width
-            ws['!cols'] = [
-                { wch: 15 }, // Student ID
-                { wch: 30 }, // Student Name
-                { wch: 20 }, // Course
-                { wch: 25 }, // Duration
-                { wch: 15 }, // Start Date
-                { wch: 15 }, // End Date
-                { wch: 15 }  // Result
->>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
             ];
 
             // Add rows

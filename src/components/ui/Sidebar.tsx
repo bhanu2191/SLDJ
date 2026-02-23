@@ -25,31 +25,20 @@ interface NavItem {
 
 interface SidebarProps {
     items: NavItem[];
-<<<<<<< HEAD
-    className?: string;
-}
-
-export function Sidebar({ items, className }: SidebarProps) {
-=======
     isCollapsed?: boolean;
     setIsCollapsed?: (collapsed: boolean) => void;
 }
 
 export function Sidebar({ items, isCollapsed = false, setIsCollapsed }: SidebarProps) {
->>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
     const location = useLocation();
     const { logout, user } = useAuth();
     const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
     return (
-<<<<<<< HEAD
-        <aside className={cn("h-screen w-72 bg-primary dark:bg-slate-950 text-white flex flex-col shadow-2xl overflow-hidden", className)}>
-=======
         <aside className={cn(
             "h-screen bg-primary dark:bg-slate-950 text-white flex flex-col fixed left-0 top-0 shadow-2xl z-50 transition-all duration-300",
             isCollapsed ? "w-20" : "w-64"
         )}>
->>>>>>> 6404a5e57bd0c99f02fb29c60ffca40fc65706a3
             {/* Logo Section */}
             <div className={cn(
                 "relative z-10 flex items-center transition-all duration-300",
