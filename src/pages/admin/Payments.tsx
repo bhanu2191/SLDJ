@@ -146,13 +146,12 @@ const AdminPayments = () => {
             {/* Header */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Financial Overview</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Class Payment Overview</h1>
                     <p className="text-slate-500 mt-1 dark:text-slate-400">Monitor revenue streams and payment history.</p>
                 </div>
                 <div className="flex gap-2">
                     <Button
                         variant="outline"
-                        size="sm"
                         onClick={loadData}
                         className="gap-2"
                     >
