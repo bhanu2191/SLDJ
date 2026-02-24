@@ -6,7 +6,7 @@ export function DashboardLayout() {
     return (
         <div className="min-h-screen bg-slate-50/50 flex font-sans text-slate-900 selection:bg-primary/10 selection:text-primary">
             {/* Fixed Sidebar */}
-            <Sidebar items={[]} />
+            <Sidebar items={[]} className="fixed left-0 top-0 z-30" />
 
             {/* Main Content Area */}
             <div className="flex-1 ml-64 flex flex-col min-h-screen transition-all duration-300">

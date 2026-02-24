@@ -9,13 +9,23 @@ import { useNavigate } from 'react-router-dom';
 import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
 import { saveStudent } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
 export function Registration() {
     const navigate = useNavigate();
     const { userRole } = useAuth();
     const [previewId, setPreviewId] = useState('');
+    const [successDialog, setSuccessDialog] = useState({ isOpen: false, studentId: '' });
 
     // Form State
     const [formData, setFormData] = useState({
@@ -62,34 +72,24 @@ export function Registration() {
 
 
 
-    // "Cute & Small" Alert Configuration (Preserved)
+    // "Cute & Small" Alert Configuration replaced with Sonner Toast wrapper
     const showCuteAlert = (title: string, text: string, icon: 'success' | 'error' | 'warning', focusId?: string) => {
-        Swal.fire({
-            title: title,
-            text: text,
-            icon: icon,
-            width: 320,
-            padding: '1.5rem',
-            background: '#ffffff',
-            confirmButtonColor: icon === 'error' ? '#ef4444' : '#053452',
-            confirmButtonText: 'Okay',
-            backdrop: `rgba(5, 52, 82, 0.2)`,
-            allowOutsideClick: false,
-            customClass: {
-                popup: 'rounded-2xl shadow-xl border border-slate-100',
-                title: 'text-xl font-bold text-slate-800 font-display',
-                htmlContainer: 'text-sm text-slate-500',
-                confirmButton: 'rounded-lg px-6 py-2 text-sm font-medium shadow-md'
-            },
-            didClose: () => {
-                if (focusId) {
-                    const element = document.getElementById(focusId);
-                    if (element) {
-                        element.focus();
-                    }
+        if (icon === 'success') {
+            toast.success(title, { description: text });
+        } else if (icon === 'error') {
+            toast.error(title, { description: text });
+        } else {
+            toast.warning(title, { description: text });
+        }
+
+        if (focusId) {
+            setTimeout(() => {
+                const element = document.getElementById(focusId);
+                if (element) {
+                    element.focus();
                 }
-            }
-        });
+            }, 100);
+        }
     };
 
     const handleClear = () => {
@@ -164,19 +164,7 @@ export function Registration() {
                 guardianPhone: formData.guardianPhone
             });
 
-            await Swal.fire({
-                icon: 'success',
-                title: 'Registration Successful!',
-                text: `Student ID: ${finalId}`,
-                width: 400,
-                confirmButtonColor: '#053452',
-                confirmButtonText: 'Done',
-                customClass: {
-                    popup: 'rounded-2xl shadow-xl border border-slate-100',
-                    title: 'text-2xl font-bold text-slate-800 font-display',
-                }
-            });
-            navigate(`/${userRole}/students`);
+            setSuccessDialog({ isOpen: true, studentId: finalId });
         } catch (error) {
             console.error("Registration failed:", error);
             const errorMessage = error instanceof Error ? error.message : 'Unknown database error';
@@ -190,6 +178,25 @@ export function Registration() {
 
     return (
         <div className="max-w-5xl mx-auto pb-10">
+            <AlertDialog open={successDialog.isOpen} onOpenChange={(open) => {
+                if (!open) {
+                    setSuccessDialog({ isOpen: false, studentId: '' });
+                    navigate(`/${userRole}/students`);
+                }
+            }}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Registration Successful!</AlertDialogTitle>
+                        <AlertDialogDescription className="text-lg">
+                            Student ID: <span className="font-bold text-slate-900 dark:text-white">{successDialog.studentId}</span>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>Done</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white">New Registration</h1>

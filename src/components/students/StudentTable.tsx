@@ -19,6 +19,16 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Student {
     regNum: string;
@@ -44,6 +54,9 @@ export function StudentTable() {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
+
+    // Delete Alert State
+    const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, regNum: '' });
 
     // Load Data
     useEffect(() => {
@@ -89,15 +102,33 @@ export function StudentTable() {
         currentPage * itemsPerPage
     );
 
-    const handleDelete = async (regNum: string) => {
-        if (confirm('Are you sure you want to delete this student?')) {
+    const handleDelete = async () => {
+        const regNum = deleteDialog.regNum;
+        if (regNum) {
             await import('../../lib/storage').then(m => m.deleteStudent(regNum));
             setStudents(students.filter(s => s.regNum !== regNum));
         }
+        setDeleteDialog({ isOpen: false, regNum: '' });
     };
 
     return (
         <Card className="shadow-md border-slate-200 dark:border-slate-800">
+            {/* Delete Alert Dialog */}
+            <AlertDialog open={deleteDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setDeleteDialog({ isOpen: false, regNum: '' })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Student?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this student? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">Yes, delete it!</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <CardHeader className="px-6 py-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 dark:border-slate-800">
                 <div>
                     <CardTitle className="text-xl font-bold">Student Directory</CardTitle>
@@ -298,7 +329,7 @@ export function StudentTable() {
                                                         className="text-red-600 focus:text-red-600 focus:bg-red-50"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleDelete(student.regNum);
+                                                            setDeleteDialog({ isOpen: true, regNum: student.regNum });
                                                         }}
                                                     >
                                                         Delete

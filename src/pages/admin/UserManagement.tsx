@@ -7,7 +7,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Operator {
     id: number;
@@ -25,6 +35,7 @@ export const UserManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [newOperator, setNewOperator] = useState({ name: '', email: '', password: '' });
+    const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, operatorId: 0 });
 
     useEffect(() => {
         loadOperators();
@@ -40,28 +51,22 @@ export const UserManagement = () => {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        const result = await Swal.fire({
-            title: 'Are you sure?',
-            text: "You won't be able to revert this!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        });
-
-        if (result.isConfirmed) {
-            try {
-                // @ts-ignore
-                await window.electronAPI.deleteOperator(id);
-                loadOperators();
-                Swal.fire('Deleted!', 'Operator has been deleted.', 'success');
-            } catch (error) {
-                console.error("Failed to delete operator", error);
-                Swal.fire('Error', 'Failed to delete operator.', 'error');
-            }
+    const handleDeleteConfirm = async () => {
+        try {
+            // @ts-ignore
+            await window.electronAPI.deleteOperator(deleteDialog.operatorId);
+            loadOperators();
+            toast.success('Operator has been deleted.');
+        } catch (error) {
+            console.error("Failed to delete operator", error);
+            toast.error('Failed to delete operator.');
+        } finally {
+            setDeleteDialog({ isOpen: false, operatorId: 0 });
         }
+    };
+
+    const handleDeleteClick = (id: number) => {
+        setDeleteDialog({ isOpen: true, operatorId: id });
     };
 
     const handleToggleStatus = (id: number) => {
@@ -89,10 +94,10 @@ export const UserManagement = () => {
             loadOperators();
             setIsAddModalOpen(false);
             setNewOperator({ name: '', email: '', password: '' });
-            Swal.fire('Success', 'Operator created successfully', 'success');
+            toast.success('Operator created successfully');
         } catch (error: any) {
             console.error("Failed to add operator", error);
-            Swal.fire('Error', error.message || 'Failed to create operator', 'error');
+            toast.error(error.message || 'Failed to create operator');
         }
     };
 
@@ -103,6 +108,21 @@ export const UserManagement = () => {
 
     return (
         <div className="space-y-6">
+            <AlertDialog open={deleteDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setDeleteDialog({ isOpen: false, operatorId: 0 })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently delete this operator account. They will no longer have access to the system.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700 text-white">Delete Account</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">User Management</h1>
@@ -231,7 +251,7 @@ export const UserManagement = () => {
                                                             <Shield className="mr-2 h-4 w-4" />
                                                             {operator.status === 'active' ? 'Suspend' : 'Activate'}
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDelete(operator.id)} className="text-red-600 focus:text-red-600">
+                                                        <DropdownMenuItem onClick={() => handleDeleteClick(operator.id)} className="text-red-600 focus:text-red-600">
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             Delete
                                                         </DropdownMenuItem>

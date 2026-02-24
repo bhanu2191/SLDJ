@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Phone, Mail, Calendar, Loader2, Edit, X, Save } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { getStudent, type Student } from '../lib/storage';
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
 
 // Shadcn Components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -107,18 +107,6 @@ export function StudentProfile() {
     const handleSave = async () => {
         if (!student) return;
 
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.addEventListener('mouseenter', Swal.stopTimer)
-                toast.addEventListener('mouseleave', Swal.resumeTimer)
-            }
-        });
-
         try {
             const updatedStudent = {
                 ...student,
@@ -131,10 +119,10 @@ export function StudentProfile() {
             setStudent(updatedStudent);
             setIsEditing(false);
 
-            Toast.fire({ icon: 'success', title: 'Profile updated successfully' });
+            toast.success('Profile updated successfully');
         } catch (err) {
             console.error("Failed to update profile", err);
-            Toast.fire({ icon: 'error', title: 'Failed to update profile' });
+            toast.error('Failed to update profile');
         }
     };
 

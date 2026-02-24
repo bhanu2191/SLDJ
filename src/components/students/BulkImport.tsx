@@ -4,7 +4,16 @@ import ExcelJS from 'exceljs';
 import { Upload, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { saveStudent } from '../../lib/storage';
 import { commitNextStudentId } from '../../lib/idGenerator';
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ImportResult {
     total: number;
@@ -17,6 +26,7 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [resultDialog, setResultDialog] = useState({ isOpen: false, success: 0, failed: 0, errors: [] as string[] });
 
     const handleButtonClick = () => {
         fileInputRef.current?.click();
@@ -51,7 +61,7 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
             results.total = rows.length;
 
             if (results.total === 0) {
-                Swal.fire('Empty File', 'No data rows found.', 'warning');
+                toast.warning('Empty File', { description: 'No data rows found.' });
                 setLoading(false);
                 return;
             }
@@ -144,28 +154,16 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
             }
 
             // Summary Alert
-            let html = `<p>Successfully imported <b>${results.success}</b> students.</p>`;
-            if (results.failed > 0) {
-                html += `<p class="text-red-500 mt-2">Failed: ${results.failed}</p>`;
-                html += `<div class="mt-2 text-xs text-left max-h-32 overflow-y-auto bg-gray-50 p-2 rounded border">`;
-                results.errors.forEach(e => html += `<div class="text-red-600 truncate">${e}</div>`);
-                html += `</div>`;
-            }
-
-            Swal.fire({
-                title: results.failed === 0 ? 'Import Successful!' : 'Import Completed',
-                html,
-                icon: results.failed === 0 ? 'success' : 'warning',
-                width: 400
+            setResultDialog({
+                isOpen: true,
+                success: results.success,
+                failed: results.failed,
+                errors: results.errors
             });
-
-            if (results.success > 0) {
-                onImportComplete();
-            }
 
         } catch (error) {
             console.error("Import failed:", error);
-            Swal.fire('Import Failed', error instanceof Error ? error.message : "Unknown error", 'error');
+            toast.error('Import Failed', { description: error instanceof Error ? error.message : "Unknown error" });
         } finally {
             setLoading(false);
             if (fileInputRef.current) {
@@ -215,6 +213,37 @@ export function BulkImport({ onImportComplete }: { onImportComplete: () => void 
 
     return (
         <div className="flex items-center gap-2">
+            <AlertDialog open={resultDialog.isOpen} onOpenChange={(isOpen) => {
+                if (!isOpen) {
+                    setResultDialog({ isOpen: false, success: 0, failed: 0, errors: [] });
+                    if (resultDialog.success > 0) {
+                        onImportComplete();
+                    }
+                }
+            }}>
+                <AlertDialogContent className="sm:max-w-md">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>{resultDialog.failed === 0 ? 'Import Successful!' : 'Import Completed'}</AlertDialogTitle>
+                        <AlertDialogDescription asChild>
+                            <div>
+                                <p>Successfully imported <b className="text-emerald-600 dark:text-emerald-400">{resultDialog.success}</b> students.</p>
+                                {resultDialog.failed > 0 && (
+                                    <div className="mt-2 text-xs text-left max-h-32 overflow-y-auto bg-gray-50 dark:bg-slate-900 p-2 rounded border dark:border-slate-800">
+                                        <p className="text-red-500 mb-1">Failed: {resultDialog.failed}</p>
+                                        {resultDialog.errors.map((e, idx) => (
+                                            <div key={idx} className="text-red-600 dark:text-red-400 truncate">{e}</div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>Done</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <input
                 type="file"
                 ref={fileInputRef}

@@ -43,7 +43,7 @@ export function OperatorLayout() {
 
             {/* Reusable Sidebar (Desktop) */}
             <div className="hidden lg:block relative z-30">
-                <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
+                <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} className="fixed left-0 top-0 z-30" />
             </div>
 
             {/* Mobile Sidebar Placeholder - Same strategy as AdminLayout */}

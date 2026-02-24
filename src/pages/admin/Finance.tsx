@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Plus,
     TrendingUp,
@@ -8,9 +8,25 @@ import {
     Calendar as CalendarIcon,
     ArrowUpRight,
     ArrowDownRight,
-    Download
+    Download,
+    Lock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    ResponsiveContainer
+} from 'recharts';
+import {
+    ChartContainer,
+    ChartTooltip,
+    ChartTooltipContent,
+    ChartLegend,
+    ChartLegendContent
+} from "@/components/ui/chart";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/Input";
@@ -39,8 +55,17 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
-import Swal from 'sweetalert2';
 
 interface FinanceRecord {
     id: number;
@@ -74,6 +99,15 @@ export default function Finance() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [filterType, setFilterType] = useState('all');
     const [categories, setCategories] = useState<{ income: string[], expense: string[] }>({ income: [], expense: [] });
+    const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, id: 0 });
+
+    // Auth State
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [passwordInput, setPasswordInput] = useState('');
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
     // Date Filters
     const [startDate, setStartDate] = useState(() => {
@@ -93,10 +127,46 @@ export default function Finance() {
         reference: ''
     });
 
+    // Chart Data Config
+    const chartConfig = {
+        income: {
+            label: "Income",
+            color: "#10b981", // Emerald 500
+        },
+        expense: {
+            label: "Expense",
+            color: "#ef4444", // Red 500
+        }
+    };
+
+    // Prepare chart data chronological
+    const chartData = React.useMemo(() => {
+        if (!records || records.length === 0) return [];
+
+        // Group by Date
+        const grouped = records.reduce((acc, record) => {
+            const date = record.date;
+            if (!acc[date]) {
+                acc[date] = { date, income: 0, expense: 0 };
+            }
+            if (record.type === 'income') {
+                acc[date].income += record.amount;
+            } else {
+                acc[date].expense += record.amount;
+            }
+            return acc;
+        }, {} as Record<string, { date: string, income: number, expense: number }>);
+
+        // Sort chronologically and return
+        return Object.values(grouped).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }, [records]);
+
     useEffect(() => {
-        loadData();
-        loadCategories();
-    }, [startDate, endDate, filterType]);
+        if (isAuthenticated) {
+            loadData();
+            loadCategories();
+        }
+    }, [startDate, endDate, filterType, isAuthenticated]);
 
     const loadCategories = async () => {
         try {
@@ -131,6 +201,7 @@ export default function Finance() {
             ]);
             setRecords(recordsData);
             setSummary(summaryData);
+            setCurrentPage(1);
         } catch (error) {
             console.error("Failed to load finance data:", error);
             toast.error("Failed to load financial records");
@@ -168,30 +239,117 @@ export default function Finance() {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        const result = await Swal.fire({
-            title: 'Delete Record?',
-            text: "This action cannot be undone.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            confirmButtonText: 'Yes, delete it!'
-        });
-
-        if (result.isConfirmed) {
-            try {
-                // @ts-ignore
-                await window.electronAPI.deleteFinanceRecord(id);
-                toast.success("Record deleted");
-                loadData();
-            } catch (error) {
-                toast.error("Failed to delete record");
-            }
+    const confirmDelete = async () => {
+        try {
+            // @ts-ignore
+            await window.electronAPI.deleteFinanceRecord(deleteDialog.id);
+            toast.success("Record deleted");
+            loadData();
+        } catch (error) {
+            toast.error("Failed to delete record");
+        } finally {
+            setDeleteDialog({ isOpen: false, id: 0 });
         }
     };
 
+    const handleDeleteClick = (id: number) => {
+        setDeleteDialog({ isOpen: true, id });
+    };
+
+    const handleAuthenticate = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passwordInput === 'Sa12345') {
+            setIsAuthenticated(true);
+            toast.success('Access Granted');
+        } else {
+            toast.error('Incorrect Password');
+            setPasswordInput('');
+        }
+    };
+
+    const handleExportXlsx = async () => {
+        try {
+            if (records.length === 0) {
+                toast.warning("No data found for the selected criteria.");
+                return;
+            }
+
+            // @ts-ignore
+            const res = await window.electronAPI.exportFinanceRecords({
+                startDate,
+                endDate,
+                type: filterType,
+                data: records
+            });
+
+            if (res.success) {
+                toast.success(`Report exported successfully to ${res.path}`);
+            }
+        } catch (error) {
+            console.error("Failed to export finance records:", error);
+            toast.error("Failed to export report");
+        }
+    };
+
+    const totalPages = Math.ceil(records.length / itemsPerPage);
+    const paginatedRecords = records.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    if (!isAuthenticated) {
+        return (
+            <div className="h-[80vh] flex items-center justify-center">
+                <Card className="w-full max-w-md shadow-lg border-slate-200 dark:border-slate-800">
+                    <CardHeader className="text-center space-y-4 pb-6">
+                        <div className="mx-auto w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                            <Lock className="h-6 w-6 text-red-600 dark:text-red-400" />
+                        </div>
+                        <div>
+                            <CardTitle className="text-2xl font-bold">Access Restricted</CardTitle>
+                            <CardDescription className="mt-2 text-slate-500">
+                                This section contains sensitive financial data and is restricted to Super Administrators.
+                            </CardDescription>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleAuthenticate} className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="password">Administrator Password</Label>
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    autoFocus
+                                    placeholder="Enter password..."
+                                    value={passwordInput}
+                                    onChange={(e) => setPasswordInput(e.target.value)}
+                                    className="bg-slate-50 dark:bg-slate-900"
+                                />
+                            </div>
+                            <Button type="submit" className="w-full gap-2">
+                                Unlock Finance Page
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
+            <AlertDialog open={deleteDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setDeleteDialog({ isOpen: false, id: 0 })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Record?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. Are you sure you want to delete this record?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white">Yes, delete it!</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Finance Management</h1>
@@ -369,6 +527,50 @@ export default function Finance() {
                 </Card>
             </div>
 
+            {/* AI Generated Chart Section */}
+            {chartData.length > 0 && (
+                <Card className="shadow-sm dark:border-slate-800">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="text-lg font-bold">Income vs Expenses Analysis</CardTitle>
+                        <CardDescription>Daily breakdown of financial transactions based on the selected period</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-72">
+                        <ChartContainer config={chartConfig} className="h-full w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" className="dark:stroke-slate-800" />
+                                    <XAxis
+                                        dataKey="date"
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickMargin={10}
+                                        tickFormatter={(value) => {
+                                            // Shorten date format, e.g., '2026-02-15' to 'Feb 15'
+                                            const d = new Date(value);
+                                            return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                                        }}
+                                        fontSize={12}
+                                        className="text-slate-500 fill-slate-500"
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickMargin={10}
+                                        tickFormatter={(value) => `LKR ${value / 1000}k`}
+                                        fontSize={12}
+                                        className="text-slate-500 fill-slate-500"
+                                    />
+                                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dashed" />} />
+                                    <ChartLegend content={<ChartLegendContent />} />
+                                    <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} barSize={24} />
+                                    <Bar dataKey="expense" fill="var(--color-expense)" radius={[4, 4, 0, 0]} barSize={24} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </ChartContainer>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Filters and List */}
             <Card className="shadow-sm dark:border-slate-800 overflow-hidden">
                 <CardHeader className="px-6 py-4 border-b bg-slate-50/50 dark:bg-slate-900 dark:border-slate-800">
@@ -409,8 +611,8 @@ export default function Finance() {
                         </div>
 
                         <div className="flex items-end gap-2">
-                            <Button variant="outline" size="sm" className="h-8 text-[10px] gap-1 px-3">
-                                <Download size={14} /> Export CSV
+                            <Button onClick={handleExportXlsx} variant="outline" size="sm" className="h-8 text-[10px] gap-1 px-3 border-emerald-500 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30">
+                                <Download size={14} /> Export XLSX
                             </Button>
                         </div>
                     </div>
@@ -437,7 +639,7 @@ export default function Finance() {
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ) : records.length === 0 ? (
+                            ) : paginatedRecords.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} className="h-32 text-center text-slate-400">
                                         <div className="flex flex-col items-center gap-2">
@@ -447,7 +649,7 @@ export default function Finance() {
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                records.map((record) => (
+                                paginatedRecords.map((record) => (
                                     <TableRow key={record.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-900/50 border-b dark:border-slate-800/50">
                                         <TableCell className="font-mono text-xs text-slate-500">
                                             {record.date}
@@ -472,9 +674,9 @@ export default function Finance() {
                                         <TableCell>
                                             <Button
                                                 variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                                                onClick={() => handleDelete(record.id)}
+                                                size="sm"
+                                                className="h-8 w-8 p-0 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                onClick={() => handleDeleteClick(record.id)}
                                             >
                                                 <Trash2 size={14} />
                                             </Button>
@@ -485,6 +687,32 @@ export default function Finance() {
                         </TableBody>
                     </Table>
                 </CardContent>
+                <div className="flex items-center justify-between px-6 py-4 border-t dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900">
+                    <div className="text-xs text-slate-500">
+                        Showing {records.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, records.length)} of {records.length} transactions
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-xs font-medium px-2 text-slate-600 dark:text-slate-300">
+                            Page {records.length === 0 ? 0 : currentPage} of {totalPages === 0 ? 1 : totalPages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                </div>
             </Card>
         </div>
     );

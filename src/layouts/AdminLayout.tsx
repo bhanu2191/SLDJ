@@ -47,11 +47,7 @@ export function AdminLayout() {
 
             {/* Reusable Sidebar (Desktop) */}
             <div className="hidden lg:block relative z-30">
-<<<<<<< HEAD
                 <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} className="fixed left-0 top-0 z-30" />
-=======
-                <Sidebar items={navItems} isCollapsed={isSidebarCollapsed} setIsCollapsed={setIsSidebarCollapsed} />
->>>>>>> cdb24b0377e535d6390aecb9342832faa6716c78
             </div>
 
             {/* Mobile Sidebar (Simplified for now or duplicate rendering with mobile styles if needed) 

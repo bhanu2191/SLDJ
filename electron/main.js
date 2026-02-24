@@ -976,15 +976,42 @@ app.whenReady().then(() => {
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Exam Results');
 
-            // Define columns
+            // --- Professional Header ---
+            // Row 1: Institute Name
+            const titleRowHeader = worksheet.addRow(['SL Dream Japan']);
+            titleRowHeader.font = { name: 'Arial Black', size: 16, bold: true, color: { argb: 'FFFF0000' } }; // Brand Red
+            worksheet.mergeCells('A1:G1');
+            titleRowHeader.alignment = { horizontal: 'center' };
+
+            // Row 2: Subtitle / Report Name
+            const subtitleRow = worksheet.addRow([`Exam Results Report - ${className}`]);
+            subtitleRow.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF333333' } };
+            worksheet.mergeCells('A2:G2');
+            subtitleRow.alignment = { horizontal: 'center' };
+
+            // Row 3: Generation Date
+            const dateRow = worksheet.addRow([`Generated on: ${new Date().toLocaleDateString()}`]);
+            dateRow.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF666666' } };
+            worksheet.mergeCells('A3:G3');
+            dateRow.alignment = { horizontal: 'center' };
+
+            // Row 4: Empty space separator
+            worksheet.addRow([]);
+
+            // Define columns (starting at Row 5)
+            worksheet.getRow(5).values = [
+                'Student ID', 'Student Name', 'Course', 'Duration', 'Start Date', 'End Date', 'Result'
+            ];
+
+            // Set Column Widths and Keys for standard rows
             worksheet.columns = [
-                { header: 'Student ID', key: 'regNum', width: 15 },
-                { header: 'Student Name', key: 'name', width: 30 },
-                { header: 'Course', key: 'course', width: 20 },
-                { header: 'Duration', key: 'duration', width: 25 },
-                { header: 'Start Date', key: 'startDate', width: 15 },
-                { header: 'End Date', key: 'endDate', width: 15 },
-                { header: 'Result', key: 'result', width: 15 }
+                { key: 'regNum', width: 15 },
+                { key: 'name', width: 30 },
+                { key: 'course', width: 20 },
+                { key: 'duration', width: 25 },
+                { key: 'startDate', width: 15 },
+                { key: 'endDate', width: 15 },
+                { key: 'result', width: 15 }
             ];
 
             // Add rows
@@ -1000,8 +1027,16 @@ app.whenReady().then(() => {
                 });
             });
 
-            // Style header
-            worksheet.getRow(1).font = { bold: true };
+            // Style data header (Row 5)
+            const headerRow = worksheet.getRow(5);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF0D9488' } // Teal branding
+                };
+            });
 
             // Open Save Dialog
             const { filePath } = await dialog.showSaveDialog({
@@ -1412,6 +1447,87 @@ app.whenReady().then(() => {
         query += ' ORDER BY name ASC';
         return db.prepare(query).all(...params);
     });
+
+    ipcMain.handle('export-finance-records', async (event, { startDate, endDate, type, data }) => {
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Finance Report');
+
+            // --- Professional Header ---
+            const titleRowHeader = worksheet.addRow(['SL Dream Japan']);
+            titleRowHeader.font = { name: 'Arial Black', size: 16, bold: true, color: { argb: 'FFFF0000' } };
+            worksheet.mergeCells('A1:E1');
+            titleRowHeader.alignment = { horizontal: 'center' };
+
+            const timeRangeStr = (startDate || endDate) ? `${startDate || 'Start'} to ${endDate || 'End'}` : 'All Time';
+            const typeStr = type === 'income' ? 'Income Only' : (type === 'expense' ? 'Expenses Only' : 'All Transactions');
+
+            const subtitleRow = worksheet.addRow([`Finance Report - ${typeStr} (${timeRangeStr})`]);
+            subtitleRow.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF333333' } };
+            worksheet.mergeCells('A2:E2');
+            subtitleRow.alignment = { horizontal: 'center' };
+
+            const dateRow = worksheet.addRow([`Generated on: ${new Date().toLocaleDateString()}`]);
+            dateRow.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF666666' } };
+            worksheet.mergeCells('A3:E3');
+            dateRow.alignment = { horizontal: 'center' };
+
+            worksheet.addRow([]);
+
+            worksheet.getRow(5).values = ['Date', 'Type', 'Category', 'Description', 'Amount (LKR)'];
+
+            worksheet.columns = [
+                { key: 'date', width: 15 },
+                { key: 'type', width: 15 },
+                { key: 'category', width: 25 },
+                { key: 'description', width: 40 },
+                { key: 'amount', width: 15 }
+            ];
+
+            data.forEach(item => {
+                const row = worksheet.addRow({
+                    date: item.date,
+                    type: item.type === 'income' ? 'Income' : 'Expense',
+                    category: item.category,
+                    description: item.description || '-',
+                    amount: item.amount
+                });
+
+                // Style the 'amount' cell (Column 5 / E)
+                const amountCell = row.getCell(5);
+                if (item.type === 'income') {
+                    amountCell.font = { color: { argb: 'FF16A34A' }, bold: true }; // Green
+                    amountCell.numFmt = '"+"#,##0.00';
+                } else {
+                    amountCell.font = { color: { argb: 'FFDC2626' }, bold: true }; // Red
+                    amountCell.numFmt = '"-"#,##0.00';
+                }
+            });
+
+            const headerRow = worksheet.getRow(5);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
+            });
+
+            const { filePath } = await dialog.showSaveDialog({
+                title: 'Export Finance Report',
+                defaultPath: `Finance_Report_${new Date().toISOString().split('T')[0]}.xlsx`,
+                filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }]
+            });
+
+            if (filePath) {
+                await workbook.xlsx.writeFile(filePath);
+                return { success: true, path: filePath };
+            } else {
+                return { success: false, cancelled: true };
+            }
+        } catch (error) {
+            console.error("Error exporting finance records:", error);
+            throw error;
+        }
+    });
+
 
     ipcMain.handle('add-finance-category', (event, { type, name }) => {
         try {

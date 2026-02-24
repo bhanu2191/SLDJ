@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { CreditCard, Printer, Check, Mail, ArrowLeft } from 'lucide-react';
 import { PaymentHistoryList } from '../../components/profile/PaymentHistoryList';
 import { useAuth } from '../../context/AuthContext';
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
 
 export const Payments = () => {
     const [selectedStudent, setSelectedStudent] = useState<any>(null);
@@ -14,18 +14,6 @@ export const Payments = () => {
     const [classCategories, setClassCategories] = useState<any[]>([]);
     const [sendingEmail, setSendingEmail] = useState(false);
     const { userRole } = useAuth();
-
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-        }
-    });
 
 
 
@@ -136,10 +124,7 @@ export const Payments = () => {
                     setSelectedClassesToPay(unpaid);
 
                 } else {
-                    Toast.fire({
-                        icon: 'info',
-                        title: 'Student not found'
-                    });
+                    toast.info('Student not found');
                 }
             } catch (error) {
                 console.error("Search failed", error);
@@ -151,10 +136,7 @@ export const Payments = () => {
 
     const handleProcessPayment = async () => {
         if (!selectedStudent || selectedClassesToPay.length === 0) {
-            Toast.fire({
-                icon: 'warning',
-                title: 'No classes selected'
-            });
+            toast.warning('No classes selected');
             return;
         }
 
@@ -237,19 +219,13 @@ export const Payments = () => {
             refreshData(); // Updates history and status
         } catch (error) {
             console.error("Payment failed", error);
-            Toast.fire({
-                icon: 'error',
-                title: 'Payment processing failed'
-            });
+            toast.error('Payment processing failed');
         }
     };
 
     const handleSendEmail = async () => {
         if (!selectedStudent || !selectedStudent.email) {
-            Toast.fire({
-                icon: 'info',
-                title: 'No email found for student'
-            });
+            toast.info('No email found for student');
             return;
         }
 
@@ -270,16 +246,10 @@ export const Payments = () => {
                 receiptNo: 'REC-' + Date.now().toString().slice(-6),
                 course: courseNames
             });
-            Toast.fire({
-                icon: 'success',
-                title: 'Email receipt sent!'
-            });
+            toast.success('Email receipt sent!');
         } catch (error) {
             console.error("Failed to send email:", error);
-            Toast.fire({
-                icon: 'error',
-                title: 'Failed to send email'
-            });
+            toast.error('Failed to send email');
         } finally {
             setSendingEmail(false);
         }

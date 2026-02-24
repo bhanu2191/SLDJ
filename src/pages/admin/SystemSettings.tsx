@@ -7,7 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import Swal from 'sweetalert2';
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ClassCategory {
     id: number | string;
@@ -43,6 +53,10 @@ export const SystemSettings = () => {
     const [smsSaving, setSmsSaving] = useState(false);
     const [smsBalance, setSmsBalance] = useState<string | number | null>(null);
 
+    // Dialog States
+    const [deleteFinanceCatDialog, setDeleteFinanceCatDialog] = useState({ isOpen: false, id: 0 });
+    const [runRemindersDialog, setRunRemindersDialog] = useState(false);
+
     useEffect(() => {
         loadCategories();
         loadSmsSettings();
@@ -74,24 +88,22 @@ export const SystemSettings = () => {
         }
     };
 
-    const handleDeleteFinanceCategory = async (id: number) => {
-        const result = await Swal.fire({
-            title: 'Delete Category?',
-            text: "Warning: Transactions in this category will also be deleted.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444'
-        });
-
-        if (result.isConfirmed) {
-            try {
-                // @ts-ignore
-                await window.electronAPI.deleteFinanceCategory(id);
-                await loadFinanceCategories();
-            } catch (error) {
-                console.error("Failed to delete finance category:", error);
-            }
+    const confirmDeleteFinanceCategory = async () => {
+        try {
+            // @ts-ignore
+            await window.electronAPI.deleteFinanceCategory(deleteFinanceCatDialog.id);
+            await loadFinanceCategories();
+            toast.success('Category deleted successfully');
+        } catch (error) {
+            console.error("Failed to delete finance category:", error);
+            toast.error('Failed to delete category');
+        } finally {
+            setDeleteFinanceCatDialog({ isOpen: false, id: 0 });
         }
+    };
+
+    const handleDeleteFinanceCategory = (id: number) => {
+        setDeleteFinanceCatDialog({ isOpen: true, id });
     };
 
     const loadSmsSettings = async () => {
@@ -170,10 +182,10 @@ export const SystemSettings = () => {
             }
             setDeletedIds([]);
             await loadCategories();
-            Swal.fire('Saved!', 'Class categories updated successfully.', 'success');
+            toast.success('Class categories updated successfully.');
         } catch (error) {
             console.error("Failed to save changes:", error);
-            Swal.fire('Error', 'Failed to save changes.', 'error');
+            toast.error('Failed to save changes.');
         } finally {
             setSaving(false);
         }
@@ -184,46 +196,72 @@ export const SystemSettings = () => {
         try {
             // @ts-ignore
             await window.electronAPI.saveSmsConfig(smsSettings);
-            Swal.fire('Saved!', 'SMS Configuration saved!', 'success');
+            toast.success('SMS Configuration saved!');
             await loadBalance();
         } catch (error) {
             console.error("Failed to save SMS settings:", error);
-            Swal.fire('Error', 'Failed to save SMS configuration.', 'error');
+            toast.error('Failed to save SMS configuration.');
         } finally {
             setSmsSaving(false);
         }
     };
 
-    const handleRunReminders = async () => {
-        const result = await Swal.fire({
-            title: 'Run Payment Reminders?',
-            text: "This will check for overdue payments and send SMS reminders to all relevant students.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, run it!',
-            cancelButtonText: 'Cancel'
-        });
-
-        if (!result.isConfirmed) return;
-
+    const confirmRunReminders = async () => {
+        setRunRemindersDialog(false);
         setReminderRunning(true);
         try {
             const res = await window.electronAPI.triggerPaymentReminders();
             if (res.success) {
-                Swal.fire('Completed', `Reminders sent: ${res.sent}\nFailed: ${res.failed}`, 'success');
+                toast.success(`Completed! Reminders sent: ${res.sent}, Failed: ${res.failed}`);
             } else {
-                Swal.fire('Error', res.message, 'error');
+                toast.error(res.message);
             }
         } catch (error) {
             console.error("Failed to run reminders:", error);
-            Swal.fire('Error', 'Failed to run reminders.', 'error');
+            toast.error('Failed to run reminders.');
         } finally {
             setReminderRunning(false);
         }
     };
 
+    const handleRunReminders = () => {
+        setRunRemindersDialog(true);
+    };
+
     return (
         <div className="space-y-6">
+            {/* Delete Finance Category Dialog */}
+            <AlertDialog open={deleteFinanceCatDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setDeleteFinanceCatDialog({ isOpen: false, id: 0 })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Warning: Transactions in this category will also be deleted. This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteFinanceCategory} className="bg-red-600 hover:bg-red-700 text-white">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Run Reminders Dialog */}
+            <AlertDialog open={runRemindersDialog} onOpenChange={setRunRemindersDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Run Payment Reminders?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will check for overdue payments and send SMS reminders to all relevant students.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmRunReminders}>Yes, run it!</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             <div>
                 <h1 className="text-2xl font-bold text-slate-900 tracking-tight dark:text-white">System Configuration</h1>
                 <p className="text-slate-500 dark:text-slate-400">Manage global settings, class fees, and integrations.</p>

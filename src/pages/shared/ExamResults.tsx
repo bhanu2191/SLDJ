@@ -45,14 +45,16 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<string>('All');
 
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
+
     // Per-student Dates Assignment State
     const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
     const [studentDates, setStudentDates] = useState<Record<string, { start?: string, end?: string }>>({});
 
     // Export Dialog State
     const [isExportOpen, setIsExportOpen] = useState(false);
-    const [exportStartDate, setExportStartDate] = useState('');
-    const [exportEndDate, setExportEndDate] = useState('');
     const [exportFilter, setExportFilter] = useState('All');
 
     const [isLoading, setIsLoading] = useState(false);
@@ -61,14 +63,6 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
 
     useEffect(() => {
         loadClasses();
-
-        // Set default dates for export
-        const today = new Date();
-        setExportEndDate(today.toISOString().split('T')[0]);
-
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(today.getMonth() - 6);
-        setExportStartDate(sixMonthsAgo.toISOString().split('T')[0]);
     }, []);
 
     useEffect(() => {
@@ -79,6 +73,7 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
         }
         // Clear selection and dates on class change
         setSelectedStudents(new Set());
+        setCurrentPage(1);
     }, [selectedClass, filterStatus]);
 
     const loadClasses = async () => {
@@ -147,11 +142,6 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
 
     const handleExport = async () => {
         try {
-            if (!exportStartDate || !exportEndDate) {
-                toast.error("Please select both start and end dates for the report duration.");
-                return;
-            }
-
             // @ts-ignore
             const exportData = await window.electronAPI.getExamResults({
                 className: selectedClass,
@@ -164,7 +154,7 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                 return;
             }
 
-            const durationString = `${exportStartDate} to ${exportEndDate}`;
+            const durationString = "3 months";
 
             // Map custom dates from state based on student registration numbers
             const enrichedData = exportData.map((item: any) => ({
@@ -194,6 +184,18 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
     const filteredStudents = students.filter(s =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.regNum.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    // Reset pagination on search change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
+    // Pagination Logic
+    const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+    const paginatedStudents = filteredStudents.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage
     );
 
     // Selection Handlers
@@ -339,9 +341,9 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                                             <TableHead className="w-[40px] px-4">
                                                 <input
                                                     type="checkbox"
-                                                    disabled={filteredStudents.length === 0}
+                                                    disabled={paginatedStudents.length === 0}
                                                     className="w-4 h-4 rounded border-slate-300 accent-emerald-600 cursor-pointer"
-                                                    checked={filteredStudents.length > 0 && selectedStudents.size === filteredStudents.length}
+                                                    checked={paginatedStudents.length > 0 && selectedStudents.size === filteredStudents.length}
                                                     onChange={(e) => handleSelectAll(e.target.checked)}
                                                 />
                                             </TableHead>
@@ -358,7 +360,7 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                                                 Loading students...
                                             </TableCell>
                                         </TableRow>
-                                    ) : filteredStudents.length === 0 ? (
+                                    ) : paginatedStudents.length === 0 ? (
                                         <TableRow>
                                             <TableCell colSpan={isAdmin ? 4 : 3} className="h-32 text-center text-slate-500">
                                                 <FileSpreadsheet className="mx-auto h-8 w-8 text-slate-300 mb-2 dark:text-slate-600" />
@@ -366,7 +368,7 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredStudents.map((student) => (
+                                        paginatedStudents.map((student) => (
                                             <TableRow key={student.regNum} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/50 dark:border-slate-800">
                                                 {isAdmin && (
                                                     <TableCell className="px-4">
@@ -446,6 +448,33 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                                 </TableBody>
                             </Table>
                         </CardContent>
+
+                        <div className="flex items-center justify-between px-6 py-4 border-t dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 mt-auto">
+                            <div className="text-xs text-slate-500">
+                                Showing {filteredStudents.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </Button>
+                                <span className="text-xs font-medium px-2 text-slate-600 dark:text-slate-300">
+                                    Page {filteredStudents.length === 0 ? 0 : currentPage} of {totalPages === 0 ? 1 : totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </Card>
                 </div>
             </div>
@@ -462,26 +491,6 @@ export default function ExamResults({ isAdmin = false }: { isAdmin?: boolean }) 
                         </DialogHeader>
 
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Default Gen Start Date</label>
-                                    <Input
-                                        type="date"
-                                        value={exportStartDate}
-                                        onChange={(e) => setExportStartDate(e.target.value)}
-                                    />
-                                    <p className="text-xs text-slate-500">Only used in headers if needed over custom dates.</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Default Gen End Date</label>
-                                    <Input
-                                        type="date"
-                                        value={exportEndDate}
-                                        onChange={(e) => setExportEndDate(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">Include Results</label>
                                 <Select value={exportFilter} onValueChange={setExportFilter}>

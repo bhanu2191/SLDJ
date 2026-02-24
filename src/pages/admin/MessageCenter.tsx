@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Send, Users, AlertCircle, MessageSquare, Clock, Smartphone, RefreshCw } from 'lucide-react';
-import Swal from 'sweetalert2';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { toast } from 'sonner';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ClassCategory {
     id: number | string;
@@ -40,6 +50,10 @@ export const MessageCenter = () => {
     const [message, setMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [stats, setStats] = useState<{ total: number; selected: number }>({ total: 0, selected: 0 });
+
+    // Dialog Data
+    const [confirmDialog, setConfirmDialog] = useState(false);
+    const [resultDialog, setResultDialog] = useState({ isOpen: false, success: 0, fail: 0 });
 
     useEffect(() => {
         loadData();
@@ -89,48 +103,40 @@ export const MessageCenter = () => {
         });
     }, [students, selectedCategory]);
 
-    const handleSend = async () => {
+    const handleSendClick = () => {
         const targets = getTargetStudents();
 
         if (targets.length === 0) {
-            Swal.fire({ title: 'No recipients', text: 'No students found with phone numbers for this selection.', icon: 'warning' });
+            toast.warning('No recipients found with phone numbers for this selection.');
             return;
         }
 
         if (!message.trim()) {
-            Swal.fire({ title: 'Empty Message', text: 'Please enter a message to send.', icon: 'warning' });
+            toast.warning('Please enter a message to send.');
             return;
         }
 
-        const result = await Swal.fire({
-            title: 'Confirm Send?',
-            text: `You are about to send this SMS to ${targets.length} students.`,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Send',
-            confirmButtonColor: '#0f172a'
-        });
+        setConfirmDialog(true);
+    };
 
-        if (result.isConfirmed) {
-            setSending(true);
-            try {
-                const recipients = targets.map(s => s.phone);
-                // @ts-ignore
-                const res = await window.electronAPI.sendManualSms({ recipients, message });
+    const confirmSend = async () => {
+        setConfirmDialog(false);
+        setSending(true);
+        const targets = getTargetStudents();
 
-                await Swal.fire({
-                    title: 'Sent!',
-                    html: `Message sent successfully.<br/>Success: <b>${res.successCount}</b><br/>Failed: <b style="color:red">${res.failCount}</b>`,
-                    icon: 'success'
-                });
-                setMessage(''); // Clear message
-                loadLogs(); // Refresh history
-            } catch (error: any) {
-                console.error("Send failed:", error);
-                Swal.fire({ title: 'Error', text: error.message || 'Failed to send messages.', icon: 'error' });
-            } finally {
-                setSending(false);
-            }
+        try {
+            const recipients = targets.map(s => s.phone);
+            // @ts-ignore
+            const res = await window.electronAPI.sendManualSms({ recipients, message });
+
+            setResultDialog({ isOpen: true, success: res.successCount, fail: res.failCount });
+            setMessage(''); // Clear message
+            loadLogs(); // Refresh history
+        } catch (error: any) {
+            console.error("Send failed:", error);
+            toast.error(error.message || 'Failed to send messages.');
+        } finally {
+            setSending(false);
         }
     };
 
@@ -140,6 +146,39 @@ export const MessageCenter = () => {
 
     return (
         <div className="flex h-[calc(100vh-100px)] gap-6 overflow-hidden">
+            {/* Confirm Send Dialog */}
+            <AlertDialog open={confirmDialog} onOpenChange={setConfirmDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Confirm Send?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You are about to send this SMS to <strong>{stats.selected}</strong> students.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmSend}>Yes, Send</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Result Dialog */}
+            <AlertDialog open={resultDialog.isOpen} onOpenChange={(isOpen) => !isOpen && setResultDialog({ isOpen: false, success: 0, fail: 0 })}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Sent!</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Message sent successfully.<br />
+                            Success: <strong className="text-emerald-600 dark:text-emerald-400">{resultDialog.success}</strong><br />
+                            Failed: <strong className="text-red-500">{resultDialog.fail}</strong>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction>Done</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* Left Panel: Composer (60%) */}
             <div className="flex-1 flex flex-col space-y-6 h-full overflow-y-auto pr-2">
                 <div className="flex flex-col gap-1">
@@ -217,7 +256,7 @@ export const MessageCenter = () => {
                             <span>Total Estimated Credits: <b className="text-slate-900 dark:text-slate-200">{segmentCount * stats.selected}</b></span>
                         </div>
                         <Button
-                            onClick={handleSend}
+                            onClick={handleSendClick}
                             disabled={sending || stats.selected === 0 || !message.trim()}
                             className="gap-2 shadow-lg shadow-primary/20"
                             size="lg"
