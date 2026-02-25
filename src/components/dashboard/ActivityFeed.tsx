@@ -1,57 +1,60 @@
-import { Coins, UserPlus, FileCheck, ArrowRight } from 'lucide-react';
+import { Coins, UserPlus, FileCheck, ArrowRight, Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-
-// Mock data - replace with real props later
-const activities = [
-    {
-        id: 1,
-        type: 'payment',
-        user: 'Kasun Perera',
-        action: 'made a payment of',
-        target: 'LKR 15,000',
-        time: '2 mins ago',
-        icon: Coins,
-        color: 'text-green-600 dark:text-green-400',
-        bg: 'bg-green-100 dark:bg-green-900/20'
-    },
-    {
-        id: 2,
-        type: 'registration',
-        user: 'Nimali Silva',
-        action: 'registered for',
-        target: 'N5 Full Time',
-        time: '1 hour ago',
-        icon: UserPlus,
-        color: 'text-blue-600 dark:text-blue-400',
-        bg: 'bg-blue-100 dark:bg-blue-900/20'
-    },
-    {
-        id: 3,
-        type: 'exam',
-        user: 'Batch 24',
-        action: 'completed',
-        target: 'N4 Mock Exam',
-        time: '3 hours ago',
-        icon: FileCheck,
-        color: 'text-purple-600 dark:text-purple-400',
-        bg: 'bg-purple-100 dark:bg-purple-900/20'
-    },
-    {
-        id: 4,
-        type: 'payment',
-        user: 'Saman Kumara',
-        action: 'made a payment of',
-        target: 'LKR 5,000',
-        time: '4 hours ago',
-        icon: Coins,
-        color: 'text-green-600 dark:text-green-400',
-        bg: 'bg-green-100 dark:bg-green-900/20'
-    },
-];
+import { useState, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 
 export function ActivityFeed() {
+    const [activities, setActivities] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadActivities = async () => {
+            if (window.electronAPI) {
+                try {
+                    const data = await window.electronAPI.getRecentActivity();
+
+                    // Map backend data to frontend format with icons
+                    const mappedData = data.map((item: any) => {
+                        let icon = Activity;
+                        let color = 'text-slate-600 dark:text-slate-400';
+                        let bg = 'bg-slate-100 dark:bg-slate-900/20';
+
+                        if (item.type === 'payment') {
+                            icon = Coins;
+                            color = 'text-green-600 dark:text-green-400';
+                            bg = 'bg-green-100 dark:bg-green-900/20';
+                        } else if (item.type === 'registration') {
+                            icon = UserPlus;
+                            color = 'text-blue-600 dark:text-blue-400';
+                            bg = 'bg-blue-100 dark:bg-blue-900/20';
+                        } else if (item.type === 'exam') {
+                            icon = FileCheck;
+                            color = 'text-purple-600 dark:text-purple-400';
+                            bg = 'bg-purple-100 dark:bg-purple-900/20';
+                        }
+
+                        return {
+                            id: item.id,
+                            type: item.type,
+                            user: item.title,
+                            action: '', // The backend gives us a fully formatted title and desc
+                            target: item.desc,
+                            time: item.time ? formatDistanceToNow(new Date(item.time), { addSuffix: true }) : 'Just now',
+                            icon,
+                            color,
+                            bg
+                        };
+                    });
+
+                    setActivities(mappedData);
+                } catch (error) {
+                    console.error("Failed to load recent activity", error);
+                }
+            }
+        };
+        loadActivities();
+    }, []);
     return (
         <Card className="flex flex-col h-full shadow-md border-slate-100 dark:border-slate-800">
             <CardHeader className="border-b border-slate-100 pb-4 dark:border-slate-800">

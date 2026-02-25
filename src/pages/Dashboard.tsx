@@ -2,9 +2,29 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { UpcomingBirthdays } from '@/components/dashboard/UpcomingBirthdays';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { Users, GraduationCap, CreditCard, TrendingUp } from 'lucide-react';
+import { Users, GraduationCap, CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export function Dashboard() {
+    const [stats, setStats] = useState({
+        totalStudents: 0,
+        monthlyRevenue: 0,
+        pendingPayments: 0
+    });
+
+    useEffect(() => {
+        const loadStats = async () => {
+            if (window.electronAPI) {
+                try {
+                    const data = await window.electronAPI.getDashboardStats();
+                    setStats(data);
+                } catch (error) {
+                    console.error("Failed to load dashboard stats", error);
+                }
+            }
+        };
+        loadStats();
+    }, []);
     return (
         <div className="space-y-8">
             {/* Header Section */}
@@ -17,30 +37,24 @@ export function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Total Revenue"
-                    value="LKR 4.2M"
-                    description="+12% from last month"
+                    value={`LKR ${stats.monthlyRevenue.toLocaleString()}`}
+                    description="This Month"
                     icon={CreditCard}
                     variant="premium"
-                    trend="up"
-                    trendValue="12%"
                 />
                 <StatCard
                     title="Active Students"
-                    value="1,240"
-                    description="+40 new this week"
+                    value={stats.totalStudents.toString()}
+                    description="Total Enrolled"
                     icon={Users}
                     variant="default"
-                    trend="up"
-                    trendValue="3.2%"
                 />
                 <StatCard
-                    title="Course Enrollments"
-                    value="856"
-                    description="Across 12 batches"
-                    icon={GraduationCap}
-                    variant="default"
-                    trend="neutral"
-                    trendValue="0%"
+                    title="Pending Payments"
+                    value={stats.pendingPayments.toString()}
+                    description="Students Unpaid"
+                    icon={AlertCircle}
+                    variant={stats.pendingPayments > 0 ? "warning" : "default"}
                 />
                 <StatCard
                     title="Pass Rate"

@@ -29,9 +29,21 @@ process.stdout.write = function (chunk, encoding, callback) {
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import cron from 'node-cron'; // Import node-cron
+
+dotenv.config();
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+
+if (!supabaseUrl || !supabaseKey) {
+    console.warn("⚠️ Missing Supabase credentials in environment variables.");
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 import smsService from './smsService.js'; // Import SMS Service
 import PDFDocument from 'pdfkit'; // Import PDFKit
 import ExcelJS from 'exceljs'; // Import exceljs for exports instead of missing xlsx
@@ -56,212 +68,8 @@ if (!fs.existsSync(dataDir)) {
 }
 
 const smsConfigPath = join(dataDir, 'sms_config.json');
-const dbPath = join(dataDir, 'school.db');
-
-// --- Database Migration / Initialization ---
-try {
-    if (!fs.existsSync(dbPath)) {
-        console.log("Database not found in UserData, checking for existing data to migrate...");
-
-        // 1. Check for database in the source/resources folder (packaged app)
-        // In electron-builder, extraResources or files can be unpacked. 
-        // Or checks if we are running from source.
-        const possibleOldPaths = [
-            join(__dirname, '../data/school.db'), // Dev environment
-            join(process.resourcesPath, 'data/school.db'), // Packaged resource
-            join(app.getAppPath(), '../data/school.db') // Another variation
-        ];
-
-        let found = false;
-        for (const oldPath of possibleOldPaths) {
-            if (fs.existsSync(oldPath)) {
-                console.log(`Migrating database from: ${oldPath}`);
-                fs.copyFileSync(oldPath, dbPath);
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            console.log("No existing database found. A new one will be created.");
-        }
-    }
-} catch (e) {
-    console.error("Migration error:", e);
-}
-const db = new Database(dbPath);
-
-// Initialize Database
-function initDB() {
-    // Enable WAL mode for better concurrency
-    db.pragma('journal_mode = WAL');
-
-    // Students Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS students (
-            regNum TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            dob TEXT,
-            phone TEXT,
-            email TEXT,
-            class TEXT NOT NULL,
-            guardian TEXT,
-            guardianPhone TEXT,
-            status TEXT CHECK(status IN ('paid', 'pending', 'overdue')) DEFAULT 'pending',
-            avatar TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Operators Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS operators (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT DEFAULT 'operator',
-            status TEXT DEFAULT 'active',
-            lastActive TEXT DEFAULT 'Never',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Payments Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            regNum TEXT NOT NULL,
-            amount REAL NOT NULL,
-            month TEXT NOT NULL,
-            date TEXT NOT NULL,
-            method TEXT NOT NULL,
-            type TEXT NOT NULL,
-            class TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(regNum) REFERENCES students(regNum)
-        )
-    `);
-
-    // Migration for existing databases without 'class' column in payments
-    try {
-        db.exec("ALTER TABLE payments ADD COLUMN class TEXT");
-    } catch (e) {
-        // Ignore error if column already exists
-    }
-
-    // Migration for students table columns (guardian, guardianPhone, avatar, gender, enrollments)
-    // We try to add them one by one. If they exist, it throws, we ignore.
-    const studentCols = ['guardian', 'guardianPhone', 'avatar', 'email', 'dob', 'phone', 'gender', 'enrollments'];
-    studentCols.forEach(col => {
-        try {
-            db.exec(`ALTER TABLE students ADD COLUMN ${col} TEXT`);
-        } catch (e) {
-            // Ignore
-        }
-    });
-
-    // Class Categories Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS class_categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            fee REAL NOT NULL,
-            duration TEXT DEFAULT '3 months',
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Migration for class_categories duration
-    try {
-        db.exec("ALTER TABLE class_categories ADD COLUMN duration TEXT DEFAULT '3 months'");
-    } catch (e) {
-        // Ignore error if column already exists
-    }
-
-    // SMS Settings Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS sms_settings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            provider TEXT DEFAULT 'mock',
-            apiKey TEXT,
-            senderId TEXT,
-            adminPhone TEXT,
-            reminderDate INTEGER DEFAULT 7,
-            reminderTime TEXT DEFAULT '09:00',
-            enabled INTEGER DEFAULT 1,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Migration for sms_settings adminPhone, reminderDate, reminderTime (for existing databases)
-    try {
-        db.exec("ALTER TABLE sms_settings ADD COLUMN adminPhone TEXT");
-    } catch (e) { }
-    try {
-        db.exec("ALTER TABLE sms_settings ADD COLUMN reminderDate INTEGER DEFAULT 7");
-    } catch (e) { }
-    try {
-        db.exec("ALTER TABLE sms_settings ADD COLUMN reminderTime TEXT DEFAULT '09:00'");
-    } catch (e) { }
-
-    // Initialize default SMS settings if empty
-    const settingsCount = db.prepare('SELECT COUNT(*) as count FROM sms_settings').get().count;
-    if (settingsCount === 0) {
-        db.prepare("INSERT INTO sms_settings (provider, apiKey, senderId, adminPhone) VALUES ('DefaultGateway', '', 'SLDJ', '')").run();
-    }
-
-    // SMS Logs Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS sms_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            recipient TEXT NOT NULL,
-            message TEXT NOT NULL,
-            status TEXT,
-            sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Exam Results Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS exam_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            regNum TEXT NOT NULL,
-            class_name TEXT NOT NULL,
-            result TEXT CHECK(result IN ('Pass', 'Fail', 'None')) DEFAULT 'None',
-            date TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(regNum) REFERENCES students(regNum)
-        )
-    `);
-
-    // Finance Records Table (Earnings & Expenses)
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS finance_records (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
-            category TEXT NOT NULL,
-            amount REAL NOT NULL,
-            description TEXT,
-            date TEXT NOT NULL,
-            reference TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Finance Categories Table
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS finance_categories (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT CHECK(type IN ('income', 'expense')) NOT NULL,
-            name TEXT NOT NULL UNIQUE,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-}
-initDB();
+// Database is now hosted on Supabase.
+// Local SQLite initiation and migration logic has been removed.
 
 // --- PDF Generation Helper ---
 function generateReceiptPDF(data, logoPath) {
@@ -376,8 +184,6 @@ function saveSmsConfig(config) {
     }
 }
 
-initDB();
-
 let mainWindow = null;
 let otpStore = { code: null, expires: 0 };
 
@@ -436,24 +242,27 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Students ---
-    ipcMain.handle('get-students', () => {
+    ipcMain.handle('get-students', async () => {
         const now = new Date();
         const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
         const dayOfMonth = now.getDate();
         const isLate = dayOfMonth > 10;
 
-        const students = db.prepare('SELECT * FROM students ORDER BY created_at DESC').all();
+        const { data: students, error: stdErr } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+        if (stdErr) throw stdErr;
+
         // Get this month's payments with class info
-        const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+        const { data: payments, error: payErr } = await supabase.from('payments').select('regNum, class').eq('month', currentMonth);
+        if (payErr) throw payErr;
 
         // Create map of regNum -> Set of paid classes
         const paymentMap = {};
-        payments.forEach(p => {
+        (payments || []).forEach(p => {
             if (!paymentMap[p.regNum]) paymentMap[p.regNum] = new Set();
             if (p.class) paymentMap[p.regNum].add(p.class);
         });
 
-        return students.map(s => {
+        return (students || []).map(s => {
             let classes = [];
             try {
                 // Try parsing as JSON array
@@ -466,22 +275,14 @@ app.whenReady().then(() => {
 
             // Calculate status for each class
             const classStatuses = classes.map(clsName => {
-                // Logic: 
-                // Paid if in paymentMap
-                // Overdue if not paid AND isLate
-                // Pending otherwise
                 const isPaid = paymentMap[s.regNum]?.has(clsName);
                 let status = 'pending';
                 if (isPaid) status = 'paid';
                 else if (isLate) status = 'overdue';
-
                 return { className: clsName, status };
             });
 
-            // Aggregate status for backward compatibility (e.g. for simple badges or sorting)
-            // If ANY are overdue -> overdue
-            // Else if ANY are pending -> pending
-            // Else -> paid
+            // Aggregate status
             let aggStatus = 'paid';
             if (classStatuses.some(c => c.status === 'overdue')) aggStatus = 'overdue';
             else if (classStatuses.some(c => c.status === 'pending')) aggStatus = 'pending';
@@ -495,17 +296,17 @@ app.whenReady().then(() => {
         });
     });
 
-    ipcMain.handle('get-student', (event, regNum) => {
+    ipcMain.handle('get-student', async (event, regNum) => {
         const now = new Date();
         const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
         const dayOfMonth = now.getDate();
         const isLate = dayOfMonth > 10;
 
-        const student = db.prepare('SELECT * FROM students WHERE regNum = ?').get(regNum);
-        if (!student) return null;
+        const { data: student, error: stdErr } = await supabase.from('students').select('*').eq('regNum', regNum).single();
+        if (stdErr || !student) return null;
 
-        const payments = db.prepare('SELECT class FROM payments WHERE regNum = ? AND month = ?').all(regNum, currentMonth);
-        const paidClasses = new Set(payments.map(p => p.class));
+        const { data: payments, error: payErr } = await supabase.from('payments').select('class').eq('regNum', regNum).eq('month', currentMonth);
+        const paidClasses = new Set((payments || []).map(p => p.class));
 
         let classes = [];
         try {
@@ -535,42 +336,46 @@ app.whenReady().then(() => {
         };
     });
 
-    ipcMain.handle('add-student', (event, student) => {
+    ipcMain.handle('add-student', async (event, student) => {
         try {
             console.log("Adding Student Payload:", student);
 
-            // Force check for gender column presence
-            try {
-                db.exec("ALTER TABLE students ADD COLUMN gender TEXT");
-                console.log("Added missing gender column via handler");
-            } catch (e) {
-                // Column likely exists, ignore error
-            }
-
-            // Ensure class is stored as JSON string if array
             const studentToSave = { ...student };
             if (Array.isArray(studentToSave.class)) {
                 studentToSave.class = JSON.stringify(studentToSave.class);
             }
 
-            const stmt = db.prepare(`
-            INSERT INTO students (regNum, name, dob, phone, email, class, enrollments, guardian, guardianPhone, status, avatar, gender)
-            VALUES (@regNum, @name, @dob, @phone, @email, @class, @enrollments, @guardian, @guardianPhone, @status, @avatar, @gender)
-        `);
-            stmt.run({ ...studentToSave, enrollments: studentToSave.enrollments || null });
+            const { data, error } = await supabase.from('students').insert([{
+                regNum: studentToSave.regNum,
+                name: studentToSave.name,
+                dob: studentToSave.dob,
+                phone: studentToSave.phone,
+                email: studentToSave.email,
+                class: studentToSave.class,
+                enrollments: studentToSave.enrollments || null,
+                guardian: studentToSave.guardian,
+                guardianPhone: studentToSave.guardianPhone,
+                status: studentToSave.status || 'pending',
+                avatar: studentToSave.avatar,
+                gender: studentToSave.gender
+            }]).select();
+
+            if (error) throw error;
 
             // --- SMS TRIGGER: Registration Welcome ---
             try {
-                const settings = loadSmsConfig();
+                const { data: settings } = await supabase.from('sms_settings').select('*').single();
                 if (settings && settings.enabled) {
                     const message = `SL Dream Japan වෙත ලියාපදිංචි වූ ඔබට ස්තුතියි. ඔබගේ අධ්‍යාපනික හා වෘත්තීය අනාගතයට සාර්ථකත්වය ප්‍රාර්ථනා කරමු.`;
                     if (studentToSave.phone) {
                         smsService.sendSMS(studentToSave.phone, message, settings)
-                            .then(res => {
+                            .then(async res => {
                                 console.log("Registration SMS result:", res);
-                                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                                    studentToSave.phone, message, res.success ? 'sent' : 'failed'
-                                );
+                                await supabase.from('sms_logs').insert([{
+                                    recipient: studentToSave.phone,
+                                    message,
+                                    status: res.success ? 'sent' : 'failed'
+                                }]);
                             })
                             .catch(err => console.error("SMS Send Error:", err));
                     }
@@ -579,7 +384,7 @@ app.whenReady().then(() => {
                 console.error("Failed to trigger registration SMS:", smsErr);
             }
 
-            return studentToSave;
+            return data[0];
         } catch (err) {
             console.error("Failed to add student:", err);
             throw err;
@@ -588,191 +393,163 @@ app.whenReady().then(() => {
 
 
 
-    ipcMain.handle('update-student', (event, student) => {
+    ipcMain.handle('update-student', async (event, student) => {
         const studentToSave = { ...student };
         if (Array.isArray(studentToSave.class)) {
             studentToSave.class = JSON.stringify(studentToSave.class);
         }
 
-        const stmt = db.prepare(`
-          UPDATE students SET 
-            name = @name, 
-            dob = @dob, 
-            phone = @phone, 
-            email = @email, 
-            class = @class, 
-            enrollments = @enrollments,
-            guardian = @guardian, 
-            guardianPhone = @guardianPhone, 
-            status = @status, 
-            avatar = @avatar,
-            gender = @gender,
-            updated_at = CURRENT_TIMESTAMP
-          WHERE regNum = @regNum
-      `);
-        stmt.run({ ...studentToSave, enrollments: studentToSave.enrollments || null });
+        const { data, error } = await supabase.from('students').update({
+            name: studentToSave.name,
+            dob: studentToSave.dob,
+            phone: studentToSave.phone,
+            email: studentToSave.email,
+            class: studentToSave.class,
+            enrollments: studentToSave.enrollments || null,
+            guardian: studentToSave.guardian,
+            guardianPhone: studentToSave.guardianPhone,
+            status: studentToSave.status || 'pending',
+            avatar: studentToSave.avatar,
+            gender: studentToSave.gender,
+            updated_at: new Date().toISOString()
+        }).eq('regNum', studentToSave.regNum).select();
 
+        if (error) throw error;
         return studentToSave;
     });
 
-    ipcMain.handle('delete-student', (event, regNum) => {
-        const deleteTransaction = db.transaction((id) => {
-            db.prepare('DELETE FROM payments WHERE regNum = ?').run(id);
-            db.prepare('DELETE FROM students WHERE regNum = ?').run(id);
-        });
-        deleteTransaction(regNum);
+    ipcMain.handle('delete-student', async (event, regNum) => {
+        await supabase.from('payments').delete().eq('regNum', regNum);
+        await supabase.from('students').delete().eq('regNum', regNum);
         return regNum;
     });
 
     // --- IPC Handlers for Operators ---
-    ipcMain.handle('get-operators', () => {
-        // Exclude password from result
-        const stmt = db.prepare('SELECT id, name, email, role, status, lastActive, created_at FROM operators ORDER BY created_at DESC');
-        return stmt.all();
+    ipcMain.handle('get-operators', async () => {
+        const { data, error } = await supabase.from('operators').select('id, name, email, role, status, lastActive, created_at').order('created_at', { ascending: false });
+        if (error) throw error;
+        return data;
     });
 
-    ipcMain.handle('add-operator', (event, operator) => {
-        const stmt = db.prepare(`
-            INSERT INTO operators (name, email, password, role, status, lastActive)
-            VALUES (@name, @email, @password, @role, @status, @lastActive)
-        `);
-        const info = stmt.run(operator);
-        return { ...operator, id: info.lastInsertRowid };
+    ipcMain.handle('add-operator', async (event, operator) => {
+        const { data, error } = await supabase.from('operators').insert([operator]).select();
+        if (error) throw error;
+        return data[0];
     });
 
-    ipcMain.handle('delete-operator', (event, id) => {
-        const stmt = db.prepare('DELETE FROM operators WHERE id = ?');
-        stmt.run(id);
+    ipcMain.handle('delete-operator', async (event, id) => {
+        await supabase.from('operators').delete().eq('id', id);
         return id;
     });
 
-    ipcMain.handle('toggle-operator-status', (event, { id, status }) => {
-        const stmt = db.prepare('UPDATE operators SET status = ? WHERE id = ?');
-        stmt.run(status, id);
+    ipcMain.handle('toggle-operator-status', async (event, { id, status }) => {
+        await supabase.from('operators').update({ status }).eq('id', id);
         return { id, status };
     });
 
     // Auth Check (Login)
-    ipcMain.handle('verify-operator', (event, { email, password }) => {
-        // In real app, hash password. Here cleartext as per mock style request or basic demo.
-        const stmt = db.prepare('SELECT * FROM operators WHERE (email = ? OR role = ?) AND password = ?');
-        // NOTE: Allowing login by 'role' name (e.g. 'operator') is weird but matches the simple UI flow.
-        // We initially check email for specificity.
-        // But the login UI sends 'role' as identifier right now. 
-        // Let's assume we pass { email: ... } if we have it, or we rely on some other ID.
-        // Wait, the Login UI sends `login({ role: 'operator', password: '...' })`.
-        // So we really only check role? That means ALL operators share the same password?
-        // NO, the user requested "new operator login process add password". 
-        // Best approach: If role is 'operator', we need an EMAIL or USERNAME input.
-        // I added Email input plan.
+    ipcMain.handle('verify-operator', async (event, { email, password }) => {
+        const { data, error } = await supabase.from('operators')
+            .select('*')
+            .eq('password', password)
+            .or(`email.eq.${email},role.eq.${email}`)
+            .single();
 
-        // For now, let's keep it flexible:
-        const user = stmt.get(email, email, password);
-        return user || null;
+        return data || null;
     });
 
     // --- IPC Handlers for Payments ---
-    ipcMain.handle('add-payment', (event, payment) => {
+    ipcMain.handle('add-payment', async (event, payment) => {
         try {
             console.log("Processing payment:", payment);
-            const insert = db.prepare(`
-                INSERT INTO payments (regNum, amount, month, date, method, type, class)
-                VALUES (@regNum, @amount, @month, @date, @method, @type, @class)
-            `);
-            const info = insert.run(payment);
 
-            // We do NOT update student table status anymore because it's calculated dynamically.
-            // But we might want to update updated_at just in case.
-            const updateTime = db.prepare("UPDATE students SET updated_at = CURRENT_TIMESTAMP WHERE regNum = ?");
-            updateTime.run(payment.regNum);
+            const { data, error } = await supabase.from('payments').insert([payment]).select();
+            if (error) throw error;
 
-            console.log("Payment success, ID:", info.lastInsertRowid);
-            return { ...payment, id: info.lastInsertRowid };
+            const info = data[0];
+
+            // update students table updated_at
+            await supabase.from('students').update({ updated_at: new Date().toISOString() }).eq('regNum', payment.regNum);
+
+            console.log("Payment success, ID:", info.id);
+            return info;
         } catch (err) {
             console.error("Error in add-payment:", err);
             throw err;
         }
     });
 
-    ipcMain.handle('get-student-payments', (event, regNum) => {
-        const stmt = db.prepare('SELECT * FROM payments WHERE regNum = ? ORDER BY date DESC');
-        return stmt.all(regNum);
+    ipcMain.handle('get-student-payments', async (event, regNum) => {
+        const { data, error } = await supabase.from('payments').select('*').eq('regNum', regNum).order('date', { ascending: false });
+        if (error) throw error;
+        return data || [];
     });
 
     // --- IPC Handlers for Dashboard ---
-    ipcMain.handle('check-db-schema', () => {
-        const info = db.pragma('table_info(students)');
-        console.log('Schema Check:', info);
-        return info;
+    ipcMain.handle('check-db-schema', async () => {
+        // Mock schema check or return true for supabase
+        return [{ name: "regNum" }, { name: "email" }];
     });
 
-    ipcMain.handle('get-dashboard-stats', () => {
+    ipcMain.handle('get-dashboard-stats', async () => {
         const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
 
-        // Active Students (Total students for now)
-        const activeStudents = db.prepare('SELECT COUNT(*) as count FROM students').get().count;
+        const { count: activeStudents, error: e1 } = await supabase.from('students').select('*', { count: 'exact', head: true });
 
-        // Monthly Revenue
-        const revenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE month = ?').get(currentMonth).total || 0;
+        const { data: revData, error: e2 } = await supabase.from('payments').select('amount').eq('month', currentMonth);
+        const revenue = (revData || []).reduce((sum, row) => sum + Number(row.amount), 0);
 
-        // Pending Payments (Students who haven't paid this month)
-        // This is a bit complex. For simplicity: Total Active Students - Students who paid this month.
-        // Get count of unique students who paid this month
-        const paidCount = db.prepare('SELECT COUNT(DISTINCT regNum) as count FROM payments WHERE month = ?').get(currentMonth).count;
-        const pendingPayments = activeStudents - paidCount;
+        const { data: payData } = await supabase.from('payments').select('regNum').eq('month', currentMonth);
+        const paidCount = new Set((payData || []).map(p => p.regNum)).size;
+
+        const pendingPayments = (activeStudents || 0) - paidCount;
 
         return {
-            totalStudents: activeStudents,
+            totalStudents: activeStudents || 0,
             monthlyRevenue: revenue,
-            pendingPayments: Math.max(0, pendingPayments) // Ensure not negative
+            pendingPayments: Math.max(0, pendingPayments)
         };
     });
 
-    ipcMain.handle('get-admin-payment-stats', () => {
+    ipcMain.handle('get-admin-payment-stats', async () => {
         const now = new Date();
         const currentMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
+        const currentDate = now.toISOString().split('T')[0];
 
-        const currentDate = now.toISOString().split('T')[0]; // Format: YYYY-MM-DD to match storage 
-        // Note: In add-payment, we use `date` passed from frontend. Frontend usually uses `new Date().toLocaleDateString()`.
-        // Ideally we should use ISO strings for dates to be safe, but let's stick to existing pattern or check DB.
+        const { data: allPay } = await supabase.from('payments').select('amount, month, date');
 
-        // 1. Total Revenue
-        const totalRevenue = db.prepare('SELECT SUM(amount) as total FROM payments').get().total || 0;
+        let totalRevenue = 0;
+        let monthlyRevenue = 0;
+        let todaysRevenue = 0;
 
-        // 2. Monthly Revenue (Reuse logic)
-        const monthlyRevenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE month = ?').get(currentMonth).total || 0;
+        (allPay || []).forEach(p => {
+            const amt = Number(p.amount);
+            totalRevenue += amt;
+            if (p.month === currentMonth) monthlyRevenue += amt;
+            if (p.date === currentDate) todaysRevenue += amt;
+        });
 
-        // 3. Today's Revenue
-        // We need to match the date format stored in DB. Assuming it's `toLocaleDateString()`.
-        // Let's check a record or assume standard. `new Date().toLocaleDateString()` is risky if format differs.
-        // But since we are sorting by date in history, likely it works or we need a fuzzy match?
-        // Let's try to get payments where date matches today's date string.
-        const todaysRevenue = db.prepare('SELECT SUM(amount) as total FROM payments WHERE date = ?').get(currentDate).total || 0;
+        // Pending Amount Calculation
+        const { data: categories } = await supabase.from('class_categories').select('name, fee');
+        const categoryMap = (categories || []).reduce((acc, cat) => ({ ...acc, [cat.name]: cat.fee }), {});
 
-        // 4. Pending Amount Calculation
-        // This is expensive. We need to iterate active students and check if they paid for their classes this month.
-        const categories = db.prepare('SELECT name, fee FROM class_categories').all();
-        const categoryMap = categories.reduce((acc, cat) => ({ ...acc, [cat.name]: cat.fee }), {});
+        const { data: students } = await supabase.from('students').select('regNum, class');
+        const { data: paymentsThisMonth } = await supabase.from('payments').select('regNum, class').eq('month', currentMonth);
 
-        const students = db.prepare('SELECT regNum, class FROM students').all();
-        const paymentsThisMonth = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
-
-        // Map: regNum -> Set(paidClasses)
         const paymentMap = {};
-        paymentsThisMonth.forEach(p => {
+        (paymentsThisMonth || []).forEach(p => {
             if (!paymentMap[p.regNum]) paymentMap[p.regNum] = new Set();
             if (p.class) paymentMap[p.regNum].add(p.class);
         });
 
         let pendingAmount = 0;
-        students.forEach(s => {
+        (students || []).forEach(s => {
             let userClasses = [];
             try { userClasses = JSON.parse(s.class); } catch (e) { userClasses = [s.class]; }
             if (!Array.isArray(userClasses)) userClasses = [s.class];
 
             userClasses.forEach(clsName => {
                 if (!paymentMap[s.regNum]?.has(clsName)) {
-                    // Not paid
                     pendingAmount += (categoryMap[clsName] || 0);
                 }
             });
@@ -786,36 +563,36 @@ app.whenReady().then(() => {
         };
     });
 
-    ipcMain.handle('get-revenue-chart', () => {
-        // Last 30 days revenue
-        // SQLite doesn't have a simple date range generator, so we might return existing data 
-        // and handle filling gaps in frontend, OR just return recent payments grouped by date.
-        // Let's return last 30 payments grouped by date for now.
-        const stmt = db.prepare(`
-            SELECT date, SUM(amount) as value 
-            FROM payments 
-            GROUP BY date 
-            ORDER BY date DESC 
-            LIMIT 30
-        `);
-        return stmt.all().reverse(); // Chronological order
+    ipcMain.handle('get-revenue-chart', async () => {
+        const { data, error } = await supabase.from('payments').select('date, amount').order('date', { ascending: false });
+        if (error || !data) return [];
+
+        const dateMap = {};
+        data.forEach(p => {
+            if (!dateMap[p.date]) dateMap[p.date] = 0;
+            dateMap[p.date] += Number(p.amount);
+        });
+
+        const sortedDates = Object.keys(dateMap).sort().reverse().slice(0, 30);
+        return sortedDates.map(date => ({ date, value: dateMap[date] })).reverse();
     });
 
-    ipcMain.handle('get-recent-activity', () => {
-        // Combine recent registrations and payments
-        // We can do two queries and merge/sort in JS
-        // Note: Students table uses regNum as PK, no 'id' column
-        const recentStudents = db.prepare('SELECT regNum, name, created_at FROM students ORDER BY created_at DESC LIMIT 5').all();
-        const recentPayments = db.prepare(`
-            SELECT p.id, s.name, p.amount, p.created_at 
-            FROM payments p 
-            JOIN students s ON p.regNum = s.regNum 
-            ORDER BY p.created_at DESC 
-            LIMIT 5
-        `).all();
+    ipcMain.handle('get-recent-activity', async () => {
+        const { data: recentStudents } = await supabase.from('students').select('regNum, name, created_at').order('created_at', { ascending: false }).limit(5);
+
+        const { data: recentPaymentsRaw } = await supabase.from('payments').select('id, amount, created_at, regNum').order('created_at', { ascending: false }).limit(5);
+
+        const paymentRegNums = (recentPaymentsRaw || []).map(p => p.regNum);
+        const { data: payStudents } = await supabase.from('students').select('regNum, name').in('regNum', paymentRegNums.length > 0 ? paymentRegNums : ['NON_EXISTENT']);
+        const payStudentMap = (payStudents || []).reduce((acc, s) => ({ ...acc, [s.regNum]: s.name }), {});
+
+        const recentPayments = (recentPaymentsRaw || []).map(p => ({
+            ...p,
+            name: payStudentMap[p.regNum] || 'Unknown'
+        }));
 
         const activities = [
-            ...recentStudents.map(s => ({
+            ...(recentStudents || []).map(s => ({
                 type: 'registration',
                 title: 'New Student Registered',
                 desc: `${s.name} - ${s.regNum}`,
@@ -831,27 +608,28 @@ app.whenReady().then(() => {
             }))
         ];
 
-        // Sort by time descending and take top 5
         activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
         return activities.slice(0, 5);
     });
 
-    ipcMain.handle('get-all-payments', () => {
-        return db.prepare(`
-            SELECT p.*, s.name as studentName, COALESCE(p.class, s.class) as class
-            FROM payments p 
-            LEFT JOIN students s ON p.regNum = s.regNum 
-            ORDER BY p.id DESC
-        `).all();
+    ipcMain.handle('get-all-payments', async () => {
+        const { data: payments } = await supabase.from('payments').select('*, students(name, class)').order('id', { ascending: false });
+        return (payments || []).map(p => ({
+            ...p,
+            studentName: p.students?.name || 'Unknown',
+            class: p.class || p.students?.class || ''
+        }));
     });
 
     // --- IPC Handlers for Exam Results ---
-    ipcMain.handle('get-upcoming-birthdays', () => {
-        const students = db.prepare("SELECT regNum, name, dob, class FROM students WHERE dob IS NOT NULL AND dob != ''").all();
+    // --- IPC Handlers for Exam Results ---
+    ipcMain.handle('get-upcoming-birthdays', async () => {
+        const { data: students, error } = await supabase.from('students').select('regNum, name, dob, class').not('dob', 'is', null).neq('dob', '');
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const upcoming = students.filter(s => {
+        const upcoming = (students || []).filter(s => {
             const dob = new Date(s.dob);
             if (isNaN(dob.getTime())) return false;
 
@@ -899,28 +677,16 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Exam Results ---
-    ipcMain.handle('get-exam-results', (event, { className, statusFilter = 'All' }) => {
+    ipcMain.handle('get-exam-results', async (event, { className, statusFilter = 'All' }) => {
         try {
-            // Get all students enrolled in the class using a LIKE clause since class is JSON string
-            const studentsStmt = db.prepare(`
-                SELECT regNum, name, class 
-                FROM students 
-                WHERE class LIKE ?
-            `);
-            const students = studentsStmt.all(`%"${className}"%`);
+            const { data: students } = await supabase.from('students').select('regNum, name, class').ilike('class', `%${className}%`);
 
-            // Fetch existing results for this class
-            const resultsStmt = db.prepare(`
-                SELECT regNum, result, date
-                FROM exam_results 
-                WHERE class_name = ?
-            `);
-            const results = resultsStmt.all(className);
+            const { data: results } = await supabase.from('exam_results').select('regNum, result, date').eq('class_name', className);
+
             const resultMap = {};
-            results.forEach(r => resultMap[r.regNum] = { result: r.result, date: r.date });
+            (results || []).forEach(r => resultMap[r.regNum] = { result: r.result, date: r.date });
 
-            // Merge students with their results
-            let merged = students.map(s => {
+            let merged = (students || []).map(s => {
                 const existing = resultMap[s.regNum];
                 return {
                     regNum: s.regNum,
@@ -931,7 +697,6 @@ app.whenReady().then(() => {
                 };
             });
 
-            // Apply filter
             if (statusFilter !== 'All') {
                 merged = merged.filter(m => m.result === statusFilter);
             }
@@ -943,27 +708,31 @@ app.whenReady().then(() => {
         }
     });
 
-    ipcMain.handle('save-exam-results', (event, { className, results }) => {
+    ipcMain.handle('save-exam-results', async (event, { className, results }) => {
         try {
-            // SQLite doesn't have true UPSERT without UNIQUE constraint on multiple columns,
-            // so we will manually check and strictly update or insert per student/class combination.
+            const regNums = results.map(r => r.regNum);
+            const { data: existing } = await supabase.from('exam_results').select('id, regNum').eq('class_name', className).in('regNum', regNums);
 
-            const existingStmt = db.prepare('SELECT id FROM exam_results WHERE regNum = ? AND class_name = ?');
-            const updateStmt = db.prepare('UPDATE exam_results SET result = ?, date = ?, created_at = CURRENT_TIMESTAMP WHERE id = ?');
-            const insertStmt = db.prepare('INSERT INTO exam_results (regNum, class_name, result, date) VALUES (?, ?, ?, ?)');
+            const existingMap = {};
+            (existing || []).forEach(e => existingMap[e.regNum] = e.id);
 
-            const transaction = db.transaction((updates) => {
-                for (const item of updates) {
-                    const existing = existingStmt.get(item.regNum, className);
-                    if (existing) {
-                        updateStmt.run(item.result, item.date, existing.id);
-                    } else {
-                        insertStmt.run(item.regNum, className, item.result, item.date);
-                    }
+            const toUpdate = [];
+            const toInsert = [];
+
+            results.forEach(item => {
+                if (existingMap[item.regNum]) {
+                    toUpdate.push({ id: existingMap[item.regNum], regNum: item.regNum, class_name: className, result: item.result, date: item.date });
+                } else {
+                    toInsert.push({ regNum: item.regNum, class_name: className, result: item.result, date: item.date });
                 }
             });
 
-            transaction(results);
+            const operations = [...toUpdate, ...toInsert];
+            if (operations.length > 0) {
+                const { error } = await supabase.from('exam_results').upsert(operations);
+                if (error) throw error;
+            }
+
             return { success: true };
         } catch (error) {
             console.error("Error saving exam results:", error);
@@ -1095,26 +864,26 @@ app.whenReady().then(() => {
     });
 
     // --- IPC Handlers for Class Categories ---
-    ipcMain.handle('get-class-categories', () => {
-        const stmt = db.prepare('SELECT * FROM class_categories ORDER BY created_at ASC');
-        return stmt.all();
+    ipcMain.handle('get-class-categories', async () => {
+        const { data } = await supabase.from('class_categories').select('*').order('created_at', { ascending: true });
+        return data || [];
     });
 
-    ipcMain.handle('add-class-category', (event, category) => {
-        const stmt = db.prepare('INSERT INTO class_categories (name, fee, duration) VALUES (@name, @fee, @duration)');
-        const info = stmt.run({ ...category, duration: category.duration || '3 months' });
-        return { ...category, duration: category.duration || '3 months', id: info.lastInsertRowid };
+    ipcMain.handle('add-class-category', async (event, category) => {
+        const toSave = { ...category, duration: category.duration || '3 months' };
+        const { data, error } = await supabase.from('class_categories').insert([toSave]).select();
+        if (error) throw error;
+        return data[0];
     });
 
-    ipcMain.handle('update-class-category', (event, category) => {
-        const stmt = db.prepare('UPDATE class_categories SET name = @name, fee = @fee, duration = @duration WHERE id = @id');
-        stmt.run({ ...category, duration: category.duration || '3 months' });
-        return category;
+    ipcMain.handle('update-class-category', async (event, category) => {
+        const toSave = { ...category, duration: category.duration || '3 months' };
+        await supabase.from('class_categories').update({ name: toSave.name, fee: toSave.fee, duration: toSave.duration }).eq('id', category.id);
+        return toSave;
     });
 
-    ipcMain.handle('delete-class-category', (event, id) => {
-        const stmt = db.prepare('DELETE FROM class_categories WHERE id = ?');
-        stmt.run(id);
+    ipcMain.handle('delete-class-category', async (event, id) => {
+        await supabase.from('class_categories').delete().eq('id', id);
         return id;
     });
 
@@ -1287,9 +1056,9 @@ app.whenReady().then(() => {
             const res = await smsService.sendSMS(targetPhone, message, otpSettings);
 
             // Log it
-            db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                targetPhone, message, res.success ? 'sent' : 'failed'
-            );
+            await supabase.from('sms_logs').insert([{
+                recipient: targetPhone, message: message, status: res.success ? 'sent' : 'failed'
+            }]);
 
             return res;
         } catch (e) {
@@ -1344,88 +1113,69 @@ app.whenReady().then(() => {
         for (const phone of recipients) {
             try {
                 const res = await smsService.sendSMS(phone, message, settings);
-                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                    phone, message, res.success ? 'sent' : 'failed'
-                );
+                await supabase.from('sms_logs').insert([{
+                    recipient: phone, message: message, status: res.success ? 'sent' : 'failed'
+                }]);
                 if (res.success) successCount++; else failCount++;
             } catch (e) {
                 console.error(`Failed to send to ${phone} `, e);
                 failCount++;
-                db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                    phone, message, 'error'
-                );
+                await supabase.from('sms_logs').insert([{
+                    recipient: phone, message: message, status: 'error'
+                }]);
             }
         }
         return { successCount, failCount };
     });
 
-    ipcMain.handle('get-sms-logs', () => {
-        // Return last 5 logs desc
-        return db.prepare('SELECT * FROM sms_logs ORDER BY sent_at DESC LIMIT 5').all();
+    ipcMain.handle('get-sms-logs', async () => {
+        const { data } = await supabase.from('sms_logs').select('*').order('created_at', { ascending: false }).limit(5);
+        return data || [];
     });
 
     // --- IPC Handlers for General Finance ---
-    ipcMain.handle('get-finance-records', (event, { startDate, endDate, type }) => {
-        let query = 'SELECT * FROM finance_records WHERE 1=1';
-        const params = [];
+    ipcMain.handle('get-finance-records', async (event, { startDate, endDate, type }) => {
+        let query = supabase.from('finance_records').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
 
-        if (startDate) {
-            query += ' AND date >= ?';
-            params.push(startDate);
-        }
-        if (endDate) {
-            query += ' AND date <= ?';
-            params.push(endDate);
-        }
-        if (type && type !== 'all') {
-            query += ' AND type = ?';
-            params.push(type);
-        }
+        if (startDate) query = query.gte('date', startDate);
+        if (endDate) query = query.lte('date', endDate);
+        if (type && type !== 'all') query = query.eq('type', type);
 
-        query += ' ORDER BY date DESC, created_at DESC';
-        return db.prepare(query).all(...params);
+        const { data, error } = await query;
+        if (error) throw error;
+        return data || [];
     });
 
-    ipcMain.handle('add-finance-record', (event, record) => {
-        const stmt = db.prepare(`
-            INSERT INTO finance_records (type, category, amount, description, date, reference)
-            VALUES (@type, @category, @amount, @description, @date, @reference)
-        `);
-        const info = stmt.run(record);
-        return { ...record, id: info.lastInsertRowid };
+    ipcMain.handle('add-finance-record', async (event, record) => {
+        const { data, error } = await supabase.from('finance_records').insert([record]).select();
+        if (error) throw error;
+        return data[0];
     });
 
-    ipcMain.handle('delete-finance-record', (event, id) => {
-        db.prepare('DELETE FROM finance_records WHERE id = ?').run(id);
+    ipcMain.handle('delete-finance-record', async (event, id) => {
+        await supabase.from('finance_records').delete().eq('id', id);
         return id;
     });
 
-    ipcMain.handle('get-finance-summary', (event, { startDate, endDate }) => {
-        // 1. Get Extra Income/Expense from finance_records
-        let financeQuery = 'SELECT type, SUM(amount) as total FROM finance_records WHERE 1=1';
-        const params = [];
-        if (startDate) { financeQuery += ' AND date >= ?'; params.push(startDate); }
-        if (endDate) { financeQuery += ' AND date <= ?'; params.push(endDate); }
-        financeQuery += ' GROUP BY type';
+    ipcMain.handle('get-finance-summary', async (event, { startDate, endDate }) => {
+        let finQuery = supabase.from('finance_records').select('type, amount');
+        if (startDate) finQuery = finQuery.gte('date', startDate);
+        if (endDate) finQuery = finQuery.lte('date', endDate);
+        const { data: financeStats } = await finQuery;
 
-        const financeStats = db.prepare(financeQuery).all(...params);
+        let payQuery = supabase.from('payments').select('amount');
+        if (startDate) payQuery = payQuery.gte('date', startDate);
+        if (endDate) payQuery = payQuery.lte('date', endDate);
+        const { data: payData } = await payQuery;
 
-        // 2. Get Student Payments (Revenue)
-        let paymentQuery = 'SELECT SUM(amount) as total FROM payments WHERE 1=1';
-        const pParams = [];
-        // Note: payments table uses 'date' which might be YYYY-MM-DD or other.
-        // If it's YYYY-MM-DD, we can use the same bounds.
-        if (startDate) { paymentQuery += ' AND date >= ?'; pParams.push(startDate); }
-        if (endDate) { paymentQuery += ' AND date <= ?'; pParams.push(endDate); }
-
-        const studentRevenue = db.prepare(paymentQuery).get(...pParams).total || 0;
+        const studentRevenue = (payData || []).reduce((sum, row) => sum + Number(row.amount), 0);
 
         let extraIncome = 0;
         let totalExpense = 0;
 
-        financeStats.forEach(s => {
-            if (s.type === 'income') extraIncome = s.total;
-            else if (s.type === 'expense') totalExpense = s.total;
+        (financeStats || []).forEach(s => {
+            if (s.type === 'income') extraIncome += Number(s.amount);
+            else if (s.type === 'expense') totalExpense += Number(s.amount);
         });
 
         return {
@@ -1437,15 +1187,11 @@ app.whenReady().then(() => {
         };
     });
 
-    ipcMain.handle('get-finance-categories', (event, type) => {
-        let query = 'SELECT * FROM finance_categories';
-        const params = [];
-        if (type) {
-            query += ' WHERE type = ?';
-            params.push(type);
-        }
-        query += ' ORDER BY name ASC';
-        return db.prepare(query).all(...params);
+    ipcMain.handle('get-finance-categories', async (event, type) => {
+        let query = supabase.from('finance_categories').select('*').order('name', { ascending: true });
+        if (type) query = query.eq('type', type);
+        const { data } = await query;
+        return data || [];
     });
 
     ipcMain.handle('export-finance-records', async (event, { startDate, endDate, type, data }) => {
@@ -1529,20 +1275,23 @@ app.whenReady().then(() => {
     });
 
 
-    ipcMain.handle('add-finance-category', (event, { type, name }) => {
+    ipcMain.handle('add-finance-category', async (event, { type, name }) => {
         try {
-            const stmt = db.prepare('INSERT INTO finance_categories (type, name) VALUES (?, ?)');
-            const info = stmt.run(type, name);
-            return { id: info.lastInsertRowid, type, name };
+            const { data, error } = await supabase.from('finance_categories').insert([{ type, name }]).select();
+            if (error) throw error;
+            return data[0];
         } catch (err) {
             console.error("Failed to add finance category:", err);
             throw err;
         }
     });
 
-    ipcMain.handle('delete-finance-category', (event, id) => {
-        db.prepare('DELETE FROM finance_records WHERE category IN (SELECT name FROM finance_categories WHERE id = ?)').run(id);
-        db.prepare('DELETE FROM finance_categories WHERE id = ?').run(id);
+    ipcMain.handle('delete-finance-category', async (event, id) => {
+        const { data: cat } = await supabase.from('finance_categories').select('name').eq('id', id).single();
+        if (cat) {
+            await supabase.from('finance_records').delete().eq('category', cat.name);
+        }
+        await supabase.from('finance_categories').delete().eq('id', id);
         return id;
     });
 
@@ -1570,42 +1319,40 @@ app.whenReady().then(() => {
         }
 
         // 3. Find unpaid students
-        const payments = db.prepare('SELECT regNum, class FROM payments WHERE month = ?').all(currentMonth);
+        const { data: payments } = await supabase.from('payments').select('regNum, class').eq('month', currentMonth);
         const paidMap = {};
-        payments.forEach(p => {
+        (payments || []).forEach(p => {
             if (!paidMap[p.regNum]) paidMap[p.regNum] = new Set();
             if (p.class) paidMap[p.regNum].add(p.class);
         });
 
-        const students = db.prepare('SELECT regNum, phone, name, class FROM students').all();
+        const { data: students } = await supabase.from('students').select('regNum, phone, name, class');
         let sentCount = 0;
         let failCount = 0;
 
-        for (const s of students) {
+        for (const s of (students || [])) {
             if (!s.phone) continue;
 
             let classes = [];
             try { classes = JSON.parse(s.class); } catch (e) { classes = [s.class]; }
             if (!Array.isArray(classes)) classes = [s.class];
 
-            // Check pending
             const pendingClasses = classes.filter(cls => !paidMap[s.regNum]?.has(cls));
 
             if (pendingClasses.length > 0) {
-                // Send reminder
-                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත.කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
+                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
 
                 try {
                     const res = await smsService.sendSMS(s.phone, message, settings);
-                    console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success} `);
+                    console.log(`Reminder sent to ${s.name} (${s.phone}): ${res.success}`);
 
-                    db.prepare('INSERT INTO sms_logs (recipient, message, status) VALUES (?, ?, ?)').run(
-                        s.phone, message, res.success ? 'sent' : 'failed'
-                    );
+                    await supabase.from('sms_logs').insert([{
+                        recipient: s.phone, message, status: res.success ? 'sent' : 'failed'
+                    }]);
 
                     if (res.success) sentCount++; else failCount++;
                 } catch (e) {
-                    console.error(`Failed to send reminder to ${s.phone} `, e);
+                    console.error(`Failed to send reminder to ${s.phone}`, e);
                     failCount++;
                 }
             }

@@ -1,16 +1,7 @@
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
-
-const data = [
-    { name: 'Jan', revenue: 4000 },
-    { name: 'Feb', revenue: 3000 },
-    { name: 'Mar', revenue: 5000 },
-    { name: 'Apr', revenue: 2780 },
-    { name: 'May', revenue: 1890 },
-    { name: 'Jun', revenue: 2390 },
-    { name: 'Jul', revenue: 3490 },
-];
-
+import { useState, useEffect } from 'react';
+import { format, parseISO } from 'date-fns';
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
@@ -26,6 +17,29 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function RevenueChart() {
+    const [chartData, setChartData] = useState<any[]>([]);
+
+    useEffect(() => {
+        const loadChartData = async () => {
+            if (window.electronAPI) {
+                try {
+                    const data = await window.electronAPI.getRevenueChart();
+                    // data comes back as [{date: 'YYYY-MM-DD', value: total_amount}]
+
+                    const formattedData = data.map((item: any) => ({
+                        name: format(parseISO(item.date), 'MMM dd'),
+                        revenue: item.value
+                    }));
+
+                    setChartData(formattedData.reverse()); // Ensure chronological order L->R
+                } catch (error) {
+                    console.error("Failed to load revenue chart", error);
+                }
+            }
+        };
+        loadChartData();
+    }, []);
+
     return (
         <Card className="col-span-4 lg:col-span-3 shadow-md border-slate-100 dark:border-slate-800">
             <CardHeader>
@@ -34,7 +48,7 @@ export function RevenueChart() {
             <div className="h-[350px] w-full p-4">
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart
-                        data={data}
+                        data={chartData}
                         margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                     >
                         <defs>
