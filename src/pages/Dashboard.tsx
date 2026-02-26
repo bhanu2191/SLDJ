@@ -2,7 +2,7 @@ import { StatCard } from '@/components/dashboard/StatCard';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { UpcomingBirthdays } from '@/components/dashboard/UpcomingBirthdays';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
-import { Users, GraduationCap, CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
+import { Users, CreditCard, TrendingUp, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export function Dashboard() {

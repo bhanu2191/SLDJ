@@ -147,7 +147,24 @@ export function StudentTable() {
                             }} />
                         </div>
                     )}
-                    <Button variant="outline" size="sm" className="hidden md:flex gap-2 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="hidden md:flex gap-2 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100"
+                        onClick={async () => {
+                            try {
+                                // @ts-ignore
+                                const res = await window.electronAPI.exportStudents(filteredStudents);
+                                if (res?.success) {
+                                    import('sonner').then(m => m.toast.success("Export Successful", { description: `File saved to ${res.path}` }));
+                                } else if (!res?.cancelled) {
+                                    import('sonner').then(m => m.toast.error("Export Failed", { description: "An unknown error occurred" }));
+                                }
+                            } catch (err) {
+                                import('sonner').then(m => m.toast.error("Export Error", { description: err instanceof Error ? err.message : "Failed to export students" }));
+                            }
+                        }}
+                    >
                         <Download className="h-4 w-4" />
                         Export
                     </Button>

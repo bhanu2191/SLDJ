@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Save, Check, RotateCcw, User, Phone, Mail, Users } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generateNextStudentId, commitNextStudentId } from '../lib/idGenerator';
 import { saveStudent } from '../lib/storage';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -38,12 +37,21 @@ export function Registration() {
         guardian: '',
         guardianPhone: ''
     });
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     const [classCategories, setClassCategories] = useState<any[]>([]);
 
     useEffect(() => {
-        // Show what the NEXT ID will be
-        setPreviewId(generateNextStudentId());
+        const loadNextId = async () => {
+            try {
+                // @ts-ignore
+                const nextId = await window.electronAPI.getNextStudentId();
+                setPreviewId(nextId);
+            } catch (e) {
+                console.error("Could not fetch next ID");
+            }
+        };
+        loadNextId();
 
         // Fetch class categories
         const loadCategories = async () => {
@@ -63,14 +71,26 @@ export function Registration() {
         if (id in formData) {
             // @ts-ignore
             setFormData(prev => ({ ...prev, [id]: value }));
+            setErrors(prev => ({ ...prev, [id]: '' }));
         }
     };
 
     const handleValueChange = (key: string, value: string) => {
         setFormData(prev => ({ ...prev, [key]: value }));
+        setErrors(prev => ({ ...prev, [key]: '' }));
     }
 
 
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLSelectElement>, nextFieldId: string) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const nextElement = document.getElementById(nextFieldId) || document.querySelector(`[data-field="${nextFieldId}"]`);
+            if (nextElement) {
+                (nextElement as HTMLElement).focus();
+            }
+        }
+    };
 
     // "Cute & Small" Alert Configuration replaced with Sonner Toast wrapper
     const showCuteAlert = (title: string, text: string, icon: 'success' | 'error' | 'warning', focusId?: string) => {
@@ -103,28 +123,59 @@ export function Registration() {
             guardian: '',
             guardianPhone: ''
         });
+        setErrors({});
         showCuteAlert('Reset', 'Form has been cleared.', 'success');
+    };
+
+    const validateForm = () => {
+        const newErrors: Record<string, string> = {};
+        if (!formData.fullName.trim()) newErrors.fullName = 'Student Name is required!';
+        if (!formData.gender) newErrors.gender = 'Please select a gender.';
+        if (!formData.dob) newErrors.dob = 'Date of Birth is required.';
+
+        const phoneRegex = /^0\d{9}$/;
+        if (!formData.phone) {
+            newErrors.phone = 'Phone Number is required';
+        } else if (!phoneRegex.test(formData.phone)) {
+            newErrors.phone = 'Must be 10 digits starting with 0.';
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (formData.email && !emailRegex.test(formData.email)) {
+            newErrors.email = 'Please check the email format.';
+        }
+
+        if (!formData.guardian.trim()) newErrors.guardian = 'Guardian Name is missing.';
+        if (!formData.guardianPhone) {
+            newErrors.guardianPhone = 'Guardian Phone is required';
+        } else if (!phoneRegex.test(formData.guardianPhone)) {
+            newErrors.guardianPhone = 'Guardian Phone must be 10 digits starting with 0.';
+        }
+
+        if (formData.selectedClasses.length === 0) newErrors.classes = 'Select at least one class.';
+
+        setErrors(newErrors);
+
+        if (Object.keys(newErrors).length > 0) {
+            showCuteAlert('Validation Error', 'Please check the highlighted fields.', 'error');
+            const firstError = Object.keys(newErrors)[0];
+            const targetId = firstError === 'gender' ? 'gender-trigger' : firstError;
+            if (targetId !== 'classes') {
+                const el = document.getElementById(targetId);
+                if (el) setTimeout(() => el.focus(), 100);
+            }
+            return false;
+        }
+        return true;
     };
 
     const handleRegister = async () => {
         // --- Validation ---
-        if (!formData.fullName.trim()) return showCuteAlert('Required', 'Student Name is missing!', 'error', 'fullName');
-        if (!formData.gender) return showCuteAlert('Required', 'Please select a gender.', 'error');
-        if (!formData.dob) return showCuteAlert('Required', 'Date of Birth is missing.', 'error', 'dob');
-
-        const phoneRegex = /^0\d{9}$/;
-        if (!formData.phone || !phoneRegex.test(formData.phone)) return showCuteAlert('Invalid Phone', 'Must be 10 digits starting with 0.', 'error', 'phone');
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (formData.email && !emailRegex.test(formData.email)) return showCuteAlert('Invalid Email', 'Please check the email format.', 'error', 'email');
-
-        if (!formData.guardian.trim()) return showCuteAlert('Required', 'Guardian Name is missing.', 'error', 'guardian');
-        if (!formData.guardianPhone || !phoneRegex.test(formData.guardianPhone)) return showCuteAlert('Invalid Phone', 'Guardian Phone must be 10 digits starting with 0.', 'error', 'guardianPhone');
-
-        if (formData.selectedClasses.length === 0) return showCuteAlert('No Selection', 'Select at least one class.', 'error');
+        if (!validateForm()) return;
 
         try {
-            const finalId = commitNextStudentId();
+            // @ts-ignore
+            const finalId = await window.electronAPI.getNextStudentId();
             const avatarUrl = formData.gender === 'male' ? 'boy.png' : 'girl.png';
 
             // Calculate enrollment end dates for selected classes
@@ -164,6 +215,23 @@ export function Registration() {
                 guardianPhone: formData.guardianPhone
             });
 
+            // Send Welcome SMS
+            if (formData.phone) {
+                try {
+                    const message = `SL Dream Japan වෙත ලියාපදිංචි වූ ඔබට ස්තුතියි. ඔබගේ අධ්යාපනික හා වෘත්තීය අනාගතයට සාර්ථකත්වය ප්රාර්ථනා කරමු.`;
+                    // @ts-ignore
+                    const smsRes = await window.electronAPI.sendWelcomeSms(formData.phone, message);
+                    if (smsRes?.success) {
+                        toast.success("SMS Sent", { description: "Welcome message delivered to the student." });
+                    } else {
+                        toast.error("SMS Failed", { description: "Could not send welcome message." });
+                    }
+                } catch (smsError) {
+                    console.error("Failed to send welcome SMS:", smsError);
+                    toast.error("SMS Error", { description: "An error occurred while sending the SMS." });
+                }
+            }
+
             setSuccessDialog({ isOpen: true, studentId: finalId });
         } catch (error) {
             console.error("Registration failed:", error);
@@ -177,7 +245,7 @@ export function Registration() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto pb-10">
+        <div className="pb-10">
             <AlertDialog open={successDialog.isOpen} onOpenChange={(open) => {
                 if (!open) {
                     setSuccessDialog({ isOpen: false, studentId: '' });
@@ -250,19 +318,22 @@ export function Registration() {
                         </CardHeader>
                         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="col-span-2 space-y-2">
-                                <Label htmlFor="fullName">Full Name</Label>
+                                <Label htmlFor="fullName" className={cn(errors.fullName && "text-red-500")}>Full Name</Label>
                                 <Input
                                     id="fullName"
                                     placeholder="e.g. Kasun Perera"
                                     value={formData.fullName}
                                     onChange={handleChange}
+                                    onKeyDown={(e) => handleKeyDown(e, 'gender-trigger')}
+                                    className={cn(errors.fullName && "border-red-500 focus-visible:ring-red-500")}
                                 />
+                                {errors.fullName && <p className="text-xs text-red-500 font-medium">{errors.fullName}</p>}
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Gender</Label>
-                                <Select value={formData.gender} onValueChange={(val) => handleValueChange('gender', val)}>
-                                    <SelectTrigger className="bg-white dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100">
+                                <Label className={cn(errors.gender && "text-red-500")}>Gender</Label>
+                                <Select value={formData.gender} onValueChange={(val) => { handleValueChange('gender', val); document.getElementById('dob')?.focus(); }}>
+                                    <SelectTrigger id="gender-trigger" data-field="gender-trigger" className={cn("bg-white dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100", errors.gender && "border-red-500 focus:ring-red-500")}>
                                         <SelectValue placeholder="Select Gender" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -270,49 +341,56 @@ export function Registration() {
                                         <SelectItem value="female">Female</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                {errors.gender && <p className="text-xs text-red-500 font-medium">{errors.gender}</p>}
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="dob">Date of Birth</Label>
+                                <Label htmlFor="dob" className={cn(errors.dob && "text-red-500")}>Date of Birth</Label>
                                 <div className="relative">
                                     <Input
                                         id="dob"
                                         type="date"
                                         value={formData.dob}
                                         onChange={handleChange}
-                                        className="bg-white dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:color-scheme-dark"
+                                        onKeyDown={(e) => handleKeyDown(e, 'phone')}
+                                        className={cn("bg-white dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 dark:color-scheme-dark", errors.dob && "border-red-500 focus-visible:ring-red-500")}
                                     />
                                 </div>
+                                {errors.dob && <p className="text-xs text-red-500 font-medium">{errors.dob}</p>}
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="phone">Phone Number</Label>
+                                <Label htmlFor="phone" className={cn(errors.phone && "text-red-500")}>Phone Number</Label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none", errors.phone ? "text-red-500" : "text-slate-400")} />
                                     <Input
                                         id="phone"
                                         type="tel"
                                         placeholder="077xxxxxxx"
                                         value={formData.phone}
                                         onChange={handleChange}
-                                        className="pl-9"
+                                        onKeyDown={(e) => handleKeyDown(e, 'email')}
+                                        className={cn("pl-9", errors.phone && "border-red-500 focus-visible:ring-red-500")}
                                     />
                                 </div>
+                                {errors.phone && <p className="text-xs text-red-500 font-medium">{errors.phone}</p>}
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email">Email Address</Label>
+                                <Label htmlFor="email" className={cn(errors.email && "text-red-500")}>Email Address</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    <Mail className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none", errors.email ? "text-red-500" : "text-slate-400")} />
                                     <Input
                                         id="email"
                                         type="email"
                                         placeholder="student@example.com"
                                         value={formData.email}
                                         onChange={handleChange}
-                                        className="pl-9"
+                                        onKeyDown={(e) => handleKeyDown(e, 'guardian')}
+                                        className={cn("pl-9", errors.email && "border-red-500 focus-visible:ring-red-500")}
                                     />
                                 </div>
+                                {errors.email && <p className="text-xs text-red-500 font-medium">{errors.email}</p>}
                             </div>
                         </CardContent>
                     </Card>
@@ -326,38 +404,51 @@ export function Registration() {
                         </CardHeader>
                         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
-                                <Label htmlFor="guardian">Guardian Name</Label>
+                                <Label htmlFor="guardian" className={cn(errors.guardian && "text-red-500")}>Guardian Name</Label>
                                 <Input
                                     id="guardian"
                                     placeholder="Parent/Guardian Name"
                                     value={formData.guardian}
                                     onChange={handleChange}
+                                    onKeyDown={(e) => handleKeyDown(e, 'guardianPhone')}
+                                    className={cn(errors.guardian && "border-red-500 focus-visible:ring-red-500")}
                                 />
+                                {errors.guardian && <p className="text-xs text-red-500 font-medium">{errors.guardian}</p>}
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="guardianPhone">Guardian Phone</Label>
+                                <Label htmlFor="guardianPhone" className={cn(errors.guardianPhone && "text-red-500")}>Guardian Phone</Label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                    <Phone className={cn("absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none", errors.guardianPhone ? "text-red-500" : "text-slate-400")} />
                                     <Input
                                         id="guardianPhone"
                                         type="tel"
                                         placeholder="077xxxxxxx"
                                         value={formData.guardianPhone}
                                         onChange={handleChange}
-                                        className="pl-9"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                const firstClassCard = document.querySelector('[data-class-card]');
+                                                if (firstClassCard) (firstClassCard as HTMLElement).focus();
+                                            }
+                                        }}
+                                        className={cn("pl-9", errors.guardianPhone && "border-red-500 focus-visible:ring-red-500")}
                                     />
                                 </div>
+                                {errors.guardianPhone && <p className="text-xs text-red-500 font-medium">{errors.guardianPhone}</p>}
                             </div>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 shadow-md dark:border-slate-800">
+                    <Card className={cn("border-slate-200 shadow-md dark:border-slate-800 transition-all duration-300", errors.classes && "border-red-500 shadow-red-500/10")}>
                         <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <Check className="h-5 w-5 text-primary" />
+                            <CardTitle className={cn("flex items-center gap-2", errors.classes && "text-red-500")}>
+                                <Check className={cn("h-5 w-5 text-primary", errors.classes && "text-red-500")} />
                                 Course Enrollment
                             </CardTitle>
-                            <CardDescription>Select all classes the student is enrolling in.</CardDescription>
+                            <CardDescription className={cn(errors.classes && "text-red-500 font-medium")}>
+                                {errors.classes || "Select all classes the student is enrolling in."}
+                            </CardDescription>
                         </CardHeader>
                         <CardContent className="p-6">
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -379,19 +470,42 @@ export function Registration() {
                                     return (
                                         <div
                                             key={cat.id}
+                                            data-class-card={true}
+                                            tabIndex={0}
                                             onClick={() => {
                                                 const cls = cat.name;
                                                 setFormData(prev => {
                                                     const current = prev.selectedClasses;
-                                                    if (current.includes(cls)) {
-                                                        return { ...prev, selectedClasses: current.filter(c => c !== cls) };
-                                                    } else {
-                                                        return { ...prev, selectedClasses: [...current, cls] };
-                                                    }
+                                                    if (current.includes(cls)) return { ...prev, selectedClasses: current.filter(c => c !== cls) };
+                                                    return { ...prev, selectedClasses: [...current, cls] };
                                                 });
+                                                setErrors(prev => ({ ...prev, classes: '' }));
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    // Toggle selection
+                                                    const cls = cat.name;
+                                                    setFormData(prev => {
+                                                        const current = prev.selectedClasses;
+                                                        if (current.includes(cls)) return { ...prev, selectedClasses: current.filter(c => c !== cls) };
+                                                        return { ...prev, selectedClasses: [...current, cls] };
+                                                    });
+                                                    setErrors(prev => ({ ...prev, classes: '' }));
+                                                } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                                                    e.preventDefault();
+                                                    // Move to next card or submit
+                                                    const cards = document.querySelectorAll('[data-class-card]');
+                                                    const currentIndex = Array.from(cards).indexOf(e.currentTarget);
+                                                    if (currentIndex < cards.length - 1) {
+                                                        (cards[currentIndex + 1] as HTMLElement).focus();
+                                                    } else {
+                                                        document.getElementById('submitBtn')?.focus();
+                                                    }
+                                                }
                                             }}
                                             className={cn(
-                                                "relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between group h-full select-none",
+                                                "relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between group h-full select-none focus:ring-4 focus:ring-primary/40 focus:outline-none",
                                                 isSelected
                                                     ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20 dark:bg-primary/10"
                                                     : "border-slate-200 hover:border-primary/50 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900"
@@ -445,7 +559,7 @@ export function Registration() {
                             </div>
                         </CardContent>
                         <CardFooter className="bg-slate-50 border-t border-slate-100 p-6 flex justify-end dark:bg-slate-900 dark:border-slate-800">
-                            <Button size="lg" onClick={handleRegister} className="w-full md:w-auto gap-2 shadow-lg shadow-primary/20">
+                            <Button id="submitBtn" size="lg" onClick={handleRegister} className="w-full md:w-auto gap-2 shadow-lg shadow-primary/20 focus:ring-4 focus:ring-primary/40 outline-none">
                                 <Save className="h-4 w-4" />
                                 Complete Registration
                             </Button>

@@ -34,7 +34,11 @@ import dotenv from 'dotenv';
 import nodemailer from 'nodemailer';
 import cron from 'node-cron'; // Import node-cron
 
-dotenv.config();
+const require = createRequire(import.meta.url);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config({ path: join(__dirname, '../.env') });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
@@ -47,10 +51,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 import smsService from './smsService.js'; // Import SMS Service
 import PDFDocument from 'pdfkit'; // Import PDFKit
 import ExcelJS from 'exceljs'; // Import exceljs for exports instead of missing xlsx
-
-const require = createRequire(import.meta.url);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (process.platform === 'win32') {
@@ -192,6 +192,7 @@ const createWindow = () => {
         width: 1200,
         height: 800,
         show: false, // Don't show until ready to prevent resizing glitch
+        backgroundColor: '#ffffff', // Prevent visual stutter by setting a solid background color
         webPreferences: {
             preload: join(__dirname, 'preload.cjs'),
             nodeIntegration: false,
@@ -335,6 +336,34 @@ app.whenReady().then(() => {
             status: aggStatus
         };
     });
+    ipcMain.handle('get-next-student-id', async () => {
+        try {
+            const { data, error } = await supabase
+                .from('students')
+                .select('regNum')
+                // Note: We need to order by the text value. Since they are formatted like 025, 026, text ordering works correctly here.
+                .order('regNum', { ascending: false })
+                .limit(1);
+
+            if (error) throw error;
+
+            let nextIdNumber = 25; // Default starting number
+            if (data && data.length > 0 && data[0].regNum) {
+                // Format: '2026/JL/026'
+                const parts = data[0].regNum.split('/');
+                if (parts.length === 3) {
+                    const lastId = parseInt(parts[2], 10);
+                    if (!isNaN(lastId)) {
+                        nextIdNumber = lastId + 1;
+                    }
+                }
+            }
+            return `2026/JL/${nextIdNumber.toString().padStart(3, '0')}`;
+        } catch (err) {
+            console.error("Failed to get next student ID:", err);
+            return `2026/JL/025`; // Safe fallback
+        }
+    });
 
     ipcMain.handle('add-student', async (event, student) => {
         try {
@@ -387,7 +416,7 @@ app.whenReady().then(() => {
             return data[0];
         } catch (err) {
             console.error("Failed to add student:", err);
-            throw err;
+            throw new Error(err.message || JSON.stringify(err) || "Failed to add student");
         }
     });
 
@@ -1129,7 +1158,8 @@ app.whenReady().then(() => {
     });
 
     ipcMain.handle('get-sms-logs', async () => {
-        const { data } = await supabase.from('sms_logs').select('*').order('created_at', { ascending: false }).limit(5);
+        const { data, error } = await supabase.from('sms_logs').select('*').order('sent_at', { ascending: false }).limit(5);
+        if (error) console.error("Error fetching SMS logs:", error);
         return data || [];
     });
 
@@ -1192,6 +1222,92 @@ app.whenReady().then(() => {
         if (type) query = query.eq('type', type);
         const { data } = await query;
         return data || [];
+    });
+    ipcMain.handle('export-students', async (event, students) => {
+        try {
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Student Directory');
+
+            // --- Professional Header ---
+            const titleRowHeader = worksheet.addRow(['SL Dream Japan']);
+            titleRowHeader.font = { name: 'Arial Black', size: 16, bold: true, color: { argb: 'FF053452' } };
+            worksheet.mergeCells('A1:F1');
+            titleRowHeader.alignment = { horizontal: 'center' };
+
+            const subtitleRow = worksheet.addRow([`Student Directory Export`]);
+            subtitleRow.font = { name: 'Arial', size: 12, bold: true, color: { argb: 'FF333333' } };
+            worksheet.mergeCells('A2:F2');
+            subtitleRow.alignment = { horizontal: 'center' };
+
+            const dateRow = worksheet.addRow([`Generated on: ${new Date().toLocaleDateString()}`]);
+            dateRow.font = { name: 'Arial', size: 10, italic: true, color: { argb: 'FF666666' } };
+            worksheet.mergeCells('A3:F3');
+            dateRow.alignment = { horizontal: 'center' };
+
+            worksheet.addRow([]);
+
+            worksheet.getRow(5).values = ['Reg Number', 'Name', 'Phone', 'Email', 'Classes', 'Status'];
+
+            worksheet.columns = [
+                { key: 'regNum', width: 20 },
+                { key: 'name', width: 30 },
+                { key: 'phone', width: 20 },
+                { key: 'email', width: 30 },
+                { key: 'classes', width: 40 },
+                { key: 'status', width: 15 }
+            ];
+
+            students.forEach(student => {
+                let classString = '';
+                if (student.classStatuses) {
+                    classString = student.classStatuses.map(c => `${c.className} (${c.status})`).join(', ');
+                } else if (Array.isArray(student.class)) {
+                    classString = student.class.join(', ');
+                } else {
+                    classString = student.class;
+                }
+
+                const row = worksheet.addRow({
+                    regNum: student.regNum,
+                    name: student.name,
+                    phone: student.phone || '-',
+                    email: student.email || '-',
+                    classes: classString,
+                    status: (student.status || '').toUpperCase()
+                });
+
+                const statusCell = row.getCell(6);
+                if (student.status === 'paid') {
+                    statusCell.font = { color: { argb: 'FF16A34A' }, bold: true };
+                } else if (student.status === 'overdue') {
+                    statusCell.font = { color: { argb: 'FFDC2626' }, bold: true };
+                } else {
+                    statusCell.font = { color: { argb: 'FFD97706' }, bold: true };
+                }
+            });
+
+            const headerRow = worksheet.getRow(5);
+            headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF053452' } };
+            });
+
+            const { filePath } = await dialog.showSaveDialog({
+                title: 'Export Student Directory',
+                defaultPath: `Student_Directory_${new Date().toISOString().split('T')[0]}.xlsx`,
+                filters: [{ name: 'Excel Workbook', extensions: ['xlsx'] }]
+            });
+
+            if (filePath) {
+                await workbook.xlsx.writeFile(filePath);
+                return { success: true, path: filePath };
+            } else {
+                return { success: false, cancelled: true };
+            }
+        } catch (error) {
+            console.error("Error exporting students:", error);
+            throw error;
+        }
     });
 
     ipcMain.handle('export-finance-records', async (event, { startDate, endDate, type, data }) => {
@@ -1295,6 +1411,41 @@ app.whenReady().then(() => {
         return id;
     });
 
+    ipcMain.handle('send-welcome-sms', async (event, { phone, message }) => {
+        try {
+            const settings = loadSmsConfig();
+            if (!settings || !settings.enabled) {
+                console.log("[SMS] Text messaging is disabled in settings. Skipping welcome message.");
+                return { success: false, message: "SMS is disabled in settings." };
+            }
+
+            console.log(`[SMS] Sending welcome message to ${phone}...`);
+            const res = await smsService.sendSMS(phone, message, settings);
+
+            // Log it in Supabase
+            await supabase.from('sms_logs').insert([{
+                recipient: phone,
+                message: message,
+                status: res.success ? 'sent' : 'failed'
+            }]);
+
+            return res;
+        } catch (error) {
+            console.error("Failed to send welcome SMS:", error);
+
+            // Still try to log the failure
+            try {
+                await supabase.from('sms_logs').insert([{
+                    recipient: phone,
+                    message: message,
+                    status: 'failed'
+                }]);
+            } catch (e) { }
+
+            throw new Error(error.message || "Failed to send SMS");
+        }
+    });
+
     // --- AUTOMATED SCHEDULER LOGIC ---
     let scheduledTask = null;
 
@@ -1340,7 +1491,7 @@ app.whenReady().then(() => {
             const pendingClasses = classes.filter(cls => !paidMap[s.regNum]?.has(cls));
 
             if (pendingClasses.length > 0) {
-                const message = `${currentMonth} සඳහා ${pendingClasses.join(', ')} ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n— SL Dream Japan`;
+                const message = `[${currentMonth}] සඳහා [${pendingClasses.join(', ')}] ගෙවීම තවමත් සිදු කර නොමැත. කරුණාකර මෙම මස 10 වන දිනට පෙර ගෙවීමට කටයුතු කරන්න.\n- SL Dream Japan`;
 
                 try {
                     const res = await smsService.sendSMS(s.phone, message, settings);

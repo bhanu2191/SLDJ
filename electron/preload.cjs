@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addStudent: (student) => ipcRenderer.invoke('add-student', student),
     updateStudent: (student) => ipcRenderer.invoke('update-student', student),
     deleteStudent: (id) => ipcRenderer.invoke('delete-student', id),
+    getNextStudentId: () => ipcRenderer.invoke('get-next-student-id'),
+    exportStudents: (data) => ipcRenderer.invoke('export-students', data),
 
     // Operator API
     getOperators: () => ipcRenderer.invoke('get-operators'),
@@ -43,6 +45,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getSmsBalance: () => ipcRenderer.invoke('get-sms-balance'),
     sendManualSms: (data) => ipcRenderer.invoke('send-manual-sms', data),
     getSmsLogs: () => ipcRenderer.invoke('get-sms-logs'),
+    sendWelcomeSms: (phone, message) => ipcRenderer.invoke('send-welcome-sms', { phone, message }),
 
     // Payment Reminders
     triggerPaymentReminders: () => ipcRenderer.invoke('trigger-payment-reminders'),

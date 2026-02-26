@@ -161,7 +161,7 @@ export function StudentProfile() {
     };
 
     return (
-        <div className="max-w-5xl mx-auto space-y-6 pb-10">
+        <div className="space-y-6 pb-10">
             <ProfileHeader student={displayStudent} />
 
             <Tabs defaultValue="details" className="w-full">
