@@ -1,0 +1,40 @@
+name: Supabase Database Backup Robot
+
+# WHEN should the robot wake up?
+on:
+  schedule:
+    # This weird code is called "Cron". '0 2 * * *' means "Wake up every day at 2:00 AM"
+    - cron: '0 2 * * *'
+  
+  # This magic word lets YOU click a button on GitHub to wake the robot up manually anytime you want!
+  workflow_dispatch: 
+
+# WHAT should the robot do?
+jobs:
+  backup:
+    # The robot needs a temporary computer to work on. We give it an Ubuntu (Linux) computer.
+    runs-on: ubuntu-latest
+
+    steps:
+      # Task 1: The robot buys its tools
+      - name: Install Database Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      # Task 2: The robot uses your secret key to take a "3D Photo" of the database
+      - name: Take Database Snapshot
+        env:
+          # Here the robot safely unlocks your secret vault!
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # This command creates a text file called "backup.sql" with all your data
+          pg_dump "$SUPABASE_DB_URL" --clean --if-exists --quote-all-identifiers > backup.sql
+
+      # Task 3: The robot puts the backup in a safe box for you
+      - name: Save the Backup File
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-database-backup
+          path: backup.sql
+          retention-days: 7 # The robot will hold onto this file for 7 days before throwing it away
