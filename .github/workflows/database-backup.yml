@@ -34,7 +34,7 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           # This command creates a text file called "backup.sql" with all your data
-          pg_dump "$SUPABASE_DB_URL" --clean --if-exists --quote-all-identifiers > backup.sql
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" --clean --if-exists --quote-all-identifiers > backup.sql
 
       # Task 3: The robot puts the backup in a safe box for you
       - name: Save the Backup File
