@@ -36,7 +36,7 @@ A comprehensive Student Management and Payment System built with Electron, React
 - **SMS Integration**: Automated SMS notifications for new registrations and payment reminders (configurable).
 - **Email Services**: Integrated email service for sending official payment receipts.
 
-### 🛠 System Features
+### System Features
 - **Data Persistence**: Robust local data storage using SQLite.
 - **Automated Scheduler**: Background jobs for checking payment statuses and sending reminders.
 - **Offline Capable**: Fully functional desktop application.
